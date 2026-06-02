@@ -61,9 +61,9 @@ function draw(timeMs: number) {
   const peanutLoop = createLoopFromPolarFunction(
     { x: -100, y: 0 },
     (theta) => 120 - 40 * Math.cos(2 * theta),
-    24,
+    124,
   );
-  const loopTravelledRatio = timeSeconds * 0.4;
+  const loopTravelledRatio = timeSeconds * 0.1;
   const loopDistance = loopTravelledRatio * peanutLoop.totalLength;
   setRotationByLoopDistance(peanutLoop, loopDistance);
   drawPolygonalLoop(context, peanutLoop);
