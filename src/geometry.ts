@@ -31,8 +31,8 @@ export const createLoopFromPolarFunction = (
   for (let i = 0; i < numVertices; i++) {
     const theta = (i / numVertices) * 2 * Math.PI;
     vertices.push({
-      x: center.x + polarFunction(theta) * Math.cos(theta),
-      y: center.y + polarFunction(theta) * Math.sin(theta),
+      x: polarFunction(theta) * Math.cos(theta),
+      y: polarFunction(theta) * Math.sin(theta),
     });
   }
 
@@ -45,12 +45,11 @@ export const createConjugateLoop = (
 ): PolygonalLoop => {
   const dist = magnitude(sub(conjugateCenter, loop.center));
   const vertices = loop.vertices.map((vertex) => {
-    const org = sub(vertex, loop.center);
-    const dir = Math.PI - direction(org);
-    const mag = dist - magnitude(org);
+    const dir = Math.PI - direction(vertex);
+    const mag = dist - magnitude(vertex);
     return {
-      x: conjugateCenter.x + mag * Math.cos(dir),
-      y: conjugateCenter.y + mag * Math.sin(dir),
+      x: mag * Math.cos(dir),
+      y: mag * Math.sin(dir),
     };
   });
   return { vertices, center: conjugateCenter };
@@ -66,28 +65,26 @@ export const positionAtLoopDistance = (
 };
 
 export const createCircleLoop = (
-  position: Vector2d,
+  center: Vector2d,
   radius: number,
   numVertices: number,
 ): PolygonalLoop => {
   const vertices: Vector2d[] = [];
   for (let i = 0; i < numVertices; i++) {
     vertices.push({
-      x: position.x + radius * Math.cos((i / numVertices) * 2 * Math.PI),
-      y: position.y + radius * Math.sin((i / numVertices) * 2 * Math.PI),
+      x: radius * Math.cos((i / numVertices) * 2 * Math.PI),
+      y: radius * Math.sin((i / numVertices) * 2 * Math.PI),
     });
   }
-  return { vertices, center: position };
+  return { vertices, center };
 };
 
 export const dendumize = (
   loop: PolygonalLoop,
   distance: number,
 ): PolygonalLoop => {
-  const vertices = loop.vertices.map((vertex) => {
-    const v0 = sub(vertex, loop.center);
-    const v1 = add(v0, scale(normal(v0), distance));
-    return add(v1, loop.center);
-  });
+  const vertices = loop.vertices.map((vertex) =>
+    add(vertex, scale(normal(vertex), distance)),
+  );
   return { vertices, center: loop.center };
 };

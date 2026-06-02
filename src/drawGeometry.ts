@@ -9,13 +9,13 @@ export const drawPolygonalLoop = (
 ) => {
   context.beginPath();
   context.moveTo(
-    loop.vertices[0].x, // + loop.center.x,
-    loop.vertices[0].y, // + loop.center.y,
+    loop.vertices[0].x + loop.center.x,
+    loop.vertices[0].y + loop.center.y,
   );
   for (let i = 1; i < loop.vertices.length; i++) {
     context.lineTo(
-      loop.vertices[i].x, // + loop.center.x,
-      loop.vertices[i].y, // + loop.center.y,
+      loop.vertices[i].x + loop.center.x,
+      loop.vertices[i].y + loop.center.y,
     );
   }
   context.closePath();
