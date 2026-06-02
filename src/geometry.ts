@@ -1,4 +1,3 @@
-import { normalize } from "three/src/math/MathUtils.js";
 import {
   add,
   direction,
@@ -38,23 +37,6 @@ export const createPolygonalLoop = (
       distance(vertices[vertices.length - 1], vertices[0]),
   };
 };
-
-15;
-0;
-
-15 > 0;
-1;
-
-15 > 12;
-2;
-
-15 <= 20;
-2;
-
-0;
-12;
-20;
-43;
 
 export const positionAtLoopDistance = (
   loop: PolygonalLoop,

@@ -1,15 +1,12 @@
-import { fill } from "three/src/extras/TextureUtils.js";
 import "./style.css";
 import {
   createCircleLoop,
   createConjugateLoop,
   createLoopFromPolarFunction,
-  createPolygonalLoop,
   dendumize,
   positionAtLoopDistance,
 } from "./geometry";
 import { drawPoint, drawPolygonalLoop } from "./drawGeometry";
-import { PI } from "three/tsl";
 import { add } from "./vector";
 
 const canvas = document.createElement("canvas");
@@ -46,18 +43,6 @@ function resizeCanvas() {
 
 resizeCanvas();
 
-const square = createPolygonalLoop(
-  [
-    { x: 0, y: 0 },
-    { x: 2, y: 0 },
-    { x: 2, y: 2 },
-    { x: 0, y: 2 },
-  ],
-  { x: 1, y: 1 },
-);
-console.log(square.cumulativeLengths);
-console.log(square.totalLength);
-
 function draw(timeMs: number) {
   const timeSeconds = timeMs / 1000;
 
@@ -68,26 +53,8 @@ function draw(timeMs: number) {
   context.strokeStyle = "#000";
   context.lineWidth = 2;
 
-  /*
-  context.beginPath();
-  context.moveTo(100, 100);
-  context.lineTo(200, 120);
-  context.lineTo(250, 200);
-  context.lineTo(150, 260);
-  context.closePath();
-  context.fillStyle = "#999";
-  context.fill();
-  context.stroke();*/
-
-  /*const circleLoop = createCircleLoop({ x: -100, y: 0 }, 200, 24);
-  const addendum = 50;
-  const dedendum = 1.25 * addendum;
-  const addendumLoop = dendumize(circleLoop, addendum);
-  const dedendumLoop = dendumize(circleLoop, -dedendum);
+  const circleLoop = createCircleLoop({ x: -100, y: 0 }, 200, 24);
   drawPolygonalLoop(context, circleLoop);
-  context.strokeStyle = "#5AA";
-  drawPolygonalLoop(context, addendumLoop);
-  drawPolygonalLoop(context, dedendumLoop);*/
 
   const peanutLoop = createLoopFromPolarFunction(
     { x: -100, y: 0 },
@@ -104,7 +71,7 @@ function draw(timeMs: number) {
   drawPolygonalLoop(context, dedendumLoop);
 
   const loopDistTestPoint = add(
-    positionAtLoopDistance(peanutLoop, timeMs * 0.1),
+    positionAtLoopDistance(peanutLoop, timeSeconds * 300),
     peanutLoop.center,
   );
   drawPoint(context, loopDistTestPoint, 5, "blue");
