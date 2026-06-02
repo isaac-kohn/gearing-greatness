@@ -19,6 +19,10 @@ export const magnitude = (v: Vector2d): number => {
   return Math.sqrt(v.x * v.x + v.y * v.y);
 };
 
+export const distance = (v1: Vector2d, v2: Vector2d): number => {
+  return magnitude(sub(v1, v2));
+};
+
 export const direction = (v: Vector2d): number => {
   return Math.atan2(v.y, v.x);
 };

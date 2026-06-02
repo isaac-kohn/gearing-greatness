@@ -4,10 +4,13 @@ import {
   createCircleLoop,
   createConjugateLoop,
   createLoopFromPolarFunction,
+  createPolygonalLoop,
   dendumize,
+  positionAtLoopDistance,
 } from "./geometry";
-import { drawPolygonalLoop } from "./drawGeometry";
+import { drawPoint, drawPolygonalLoop } from "./drawGeometry";
 import { PI } from "three/tsl";
+import { add } from "./vector";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
@@ -43,7 +46,21 @@ function resizeCanvas() {
 
 resizeCanvas();
 
-function draw() {
+const square = createPolygonalLoop(
+  [
+    { x: 0, y: 0 },
+    { x: 2, y: 0 },
+    { x: 2, y: 2 },
+    { x: 0, y: 2 },
+  ],
+  { x: 1, y: 1 },
+);
+console.log(square.cumulativeLengths);
+console.log(square.totalLength);
+
+function draw(timeMs: number) {
+  const timeSeconds = timeMs / 1000;
+
   // clear canvas by drawing a big rect over everything
   context.fillStyle = "#eee";
   context.fillRect(-WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT);
@@ -86,6 +103,12 @@ function draw() {
   drawPolygonalLoop(context, addendumLoop);
   drawPolygonalLoop(context, dedendumLoop);
 
+  const loopDistTestPoint = add(
+    positionAtLoopDistance(peanutLoop, timeMs * 0.1),
+    peanutLoop.center,
+  );
+  drawPoint(context, loopDistTestPoint, 5, "blue");
+
   const peanutConjugateLoop = createConjugateLoop(peanutLoop, { x: 150, y: 0 });
   context.strokeStyle = "#000";
   drawPolygonalLoop(context, peanutConjugateLoop);
@@ -97,9 +120,9 @@ function draw() {
 }
 
 // runs ~60fps
-function animate() {
-  draw();
+function animate(timeMs: number) {
+  draw(timeMs);
   requestAnimationFrame(animate);
 }
 
-animate();
+requestAnimationFrame(animate);

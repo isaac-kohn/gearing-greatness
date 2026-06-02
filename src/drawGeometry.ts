@@ -1,4 +1,17 @@
 import type { PolygonalLoop } from "./geometry";
+import type { Vector2d } from "./vector";
+
+export const drawPoint = (
+  context: CanvasRenderingContext2D,
+  point: Vector2d,
+  radius = 3,
+  color = "red",
+) => {
+  context.beginPath();
+  context.arc(point.x, point.y, radius, 0, 2 * Math.PI);
+  context.fillStyle = color;
+  context.fill();
+};
 
 export const drawPolygonalLoop = (
   context: CanvasRenderingContext2D,
@@ -22,9 +35,6 @@ export const drawPolygonalLoop = (
   fill && context.fill();
   stroke && context.stroke();
   if (displayCenter) {
-    context.beginPath();
-    context.arc(loop.center.x, loop.center.y, 3, 0, 2 * Math.PI);
-    context.fillStyle = "red";
-    context.fill();
+    drawPoint(context, loop.center, 3, "red");
   }
 };
