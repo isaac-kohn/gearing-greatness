@@ -1,5 +1,5 @@
 import type { PolygonalLoop } from "./geometry";
-import type { Vector2d } from "./vector";
+import { rotate, type Vector2d } from "./vector";
 
 export const drawPoint = (
   context: CanvasRenderingContext2D,
@@ -20,15 +20,13 @@ export const drawPolygonalLoop = (
   stroke = true,
   displayCenter = true,
 ) => {
+  const vertices = loop.vertices.map((vertex) => rotate(vertex, loop.rotation));
   context.beginPath();
-  context.moveTo(
-    loop.vertices[0].x + loop.center.x,
-    loop.vertices[0].y + loop.center.y,
-  );
+  context.moveTo(vertices[0].x + loop.center.x, vertices[0].y + loop.center.y);
   for (let i = 1; i < loop.vertices.length; i++) {
     context.lineTo(
-      loop.vertices[i].x + loop.center.x,
-      loop.vertices[i].y + loop.center.y,
+      vertices[i].x + loop.center.x,
+      vertices[i].y + loop.center.y,
     );
   }
   context.closePath();

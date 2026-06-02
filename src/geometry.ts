@@ -16,11 +16,19 @@ export interface PolygonalLoop {
   // derived
   cumulativeLengths: number[];
   totalLength: number;
+  // default
+  rotation: number;
+}
+
+export interface Gear {
+  pitchCurve: PolygonalLoop;
+  module: number;
 }
 
 export const createPolygonalLoop = (
   vertices: Vector2d[],
   center: Vector2d,
+  rotation = 0,
 ): PolygonalLoop => {
   let cumulativeLengths: number[] = [0];
   for (let i = 0; i < vertices.length - 1; i++) {
@@ -35,33 +43,59 @@ export const createPolygonalLoop = (
     totalLength:
       cumulativeLengths[cumulativeLengths.length - 1] +
       distance(vertices[vertices.length - 1], vertices[0]),
+    rotation,
   };
+};
+
+// its possible to convert this to a binary search
+export const indexOfCumulativeLength = (
+  loop: PolygonalLoop,
+  dist: number,
+): { baseIndex: number; nextIndex: number; lerpRatio: number } => {
+  dist = ((dist % loop.totalLength) + loop.totalLength) % loop.totalLength;
+  let i = 0;
+  while (
+    i < loop.cumulativeLengths.length &&
+    dist >= loop.cumulativeLengths[i]
+  ) {
+    i++;
+  }
+  if (i === loop.cumulativeLengths.length) {
+    const baseIndex = i - 1;
+    const nextIndex = 0;
+    const distToNext = loop.totalLength - loop.cumulativeLengths[baseIndex];
+    const distLeftAfterBase = dist - loop.cumulativeLengths[baseIndex];
+    const lerpRatio = distLeftAfterBase / distToNext;
+    return { baseIndex, nextIndex, lerpRatio };
+  }
+  const baseIndex = i - 1;
+  const nextIndex = i;
+  const distToNext =
+    loop.cumulativeLengths[nextIndex] - loop.cumulativeLengths[baseIndex];
+  const distLeftAfterBase = dist - loop.cumulativeLengths[baseIndex];
+  const lerpRatio = distLeftAfterBase / distToNext;
+  return { baseIndex, nextIndex, lerpRatio };
 };
 
 export const positionAtLoopDistance = (
   loop: PolygonalLoop,
   dist: number,
 ): Vector2d => {
-  dist = ((dist % loop.totalLength) + loop.totalLength) % loop.totalLength;
-  let i = 0;
-  while (
-    dist > loop.cumulativeLengths[i] &&
-    i < loop.cumulativeLengths.length
-  ) {
-    i++;
-  }
-  if (dist === loop.cumulativeLengths[i]) {
-    return loop.vertices[i];
-  }
-  const baseIndex = i - 1;
-  const nextIndex = i < loop.cumulativeLengths.length ? i : 0; // preserves looping behaviour
+  const { baseIndex, nextIndex, lerpRatio } = indexOfCumulativeLength(
+    loop,
+    dist,
+  );
   const baseVector = loop.vertices[baseIndex];
   const nextVector = loop.vertices[nextIndex];
-  const distToNext = distance(nextVector, baseVector);
-  const distLeftAfterBase = dist - loop.cumulativeLengths[baseIndex];
-  const lerpRatio = distLeftAfterBase / distToNext;
-
   return lerp(baseVector, nextVector, lerpRatio);
+};
+
+export const setRotationByLoopDistance = (
+  loop: PolygonalLoop,
+  dist: number,
+) => {
+  const position = positionAtLoopDistance(loop, dist);
+  loop.rotation = direction(position);
 };
 
 export const createLoopFromPolarFunction = (
@@ -119,5 +153,5 @@ export const dendumize = (
   const vertices = loop.vertices.map((vertex) =>
     add(vertex, scale(normal(vertex), distance)),
   );
-  return createPolygonalLoop(vertices, loop.center);
+  return createPolygonalLoop(vertices, loop.center, loop.rotation);
 };

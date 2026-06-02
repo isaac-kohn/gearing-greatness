@@ -4,10 +4,12 @@ import {
   createConjugateLoop,
   createLoopFromPolarFunction,
   dendumize,
+  indexOfCumulativeLength,
   positionAtLoopDistance,
+  setRotationByLoopDistance,
 } from "./geometry";
 import { drawPoint, drawPolygonalLoop } from "./drawGeometry";
-import { add } from "./vector";
+import { add, direction, lerp, rotate } from "./vector";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
@@ -53,14 +55,17 @@ function draw(timeMs: number) {
   context.strokeStyle = "#000";
   context.lineWidth = 2;
 
-  const circleLoop = createCircleLoop({ x: -100, y: 0 }, 200, 24);
-  drawPolygonalLoop(context, circleLoop);
+  //const circleLoop = createCircleLoop({ x: -100, y: 0 }, 200, 24);
+  //drawPolygonalLoop(context, circleLoop);
 
   const peanutLoop = createLoopFromPolarFunction(
     { x: -100, y: 0 },
     (theta) => 120 - 40 * Math.cos(2 * theta),
     24,
   );
+  const loopTravelledRatio = timeSeconds * 0.4;
+  const loopDistance = loopTravelledRatio * peanutLoop.totalLength;
+  setRotationByLoopDistance(peanutLoop, loopDistance);
   drawPolygonalLoop(context, peanutLoop);
   const addendum = 20;
   const dedendum = 1.25 * addendum;
@@ -71,12 +76,32 @@ function draw(timeMs: number) {
   drawPolygonalLoop(context, dedendumLoop);
 
   const loopDistTestPoint = add(
-    positionAtLoopDistance(peanutLoop, timeSeconds * 300),
+    rotate(
+      positionAtLoopDistance(peanutLoop, -loopDistance),
+      peanutLoop.rotation,
+    ),
     peanutLoop.center,
   );
   drawPoint(context, loopDistTestPoint, 5, "blue");
 
   const peanutConjugateLoop = createConjugateLoop(peanutLoop, { x: 150, y: 0 });
+  /*const conjugateLoopDistance =
+    loopTravelledRatio * peanutConjugateLoop.totalLength;
+  setRotationByLoopDistance(peanutConjugateLoop, conjugateLoopDistance);*/
+
+  const { baseIndex, nextIndex, lerpRatio } = indexOfCumulativeLength(
+    peanutLoop,
+    loopDistance,
+  );
+  const conjugateRotation = direction(
+    lerp(
+      peanutConjugateLoop.vertices[baseIndex],
+      peanutConjugateLoop.vertices[nextIndex],
+      lerpRatio,
+    ),
+  );
+  peanutConjugateLoop.rotation = conjugateRotation;
+
   context.strokeStyle = "#000";
   drawPolygonalLoop(context, peanutConjugateLoop);
   const conjAddendumLoop = dendumize(peanutConjugateLoop, addendum);
