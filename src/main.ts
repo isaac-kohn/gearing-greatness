@@ -84,7 +84,7 @@ function draw(timeMs: number) {
   );
   drawPoint(context, loopDistTestPoint, 5, "blue");
 
-  const peanutConjugateLoop = createConjugateLoop(peanutLoop, { x: 150, y: 0 });
+  const peanutConjugateLoop = createConjugateLoop(peanutLoop, { x: 100, y: 0 });
   /*const conjugateLoopDistance =
     loopTravelledRatio * peanutConjugateLoop.totalLength;
   setRotationByLoopDistance(peanutConjugateLoop, conjugateLoopDistance);*/
