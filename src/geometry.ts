@@ -98,6 +98,31 @@ export const setRotationByLoopDistance = (
   loop.rotation = direction(position);
 };
 
+// this only works because we originally generate the polygonalLoops by creating vectors at fixed intervals of rotation around center
+export const loopDistanceAtAngle = (
+  loop: PolygonalLoop,
+  angle: number,
+): number => {
+  angle = ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const numVertices = loop.vertices.length;
+  const decimalIndex = (numVertices * angle) / (2 * Math.PI);
+  const baseIndex = Math.floor(decimalIndex);
+  const lerpRatio = decimalIndex - baseIndex;
+  const baseDistance = loop.cumulativeLengths[baseIndex];
+  if (baseIndex === numVertices - 1) {
+    return (
+      baseDistance +
+      lerpRatio * (loop.totalLength - loop.cumulativeLengths[baseIndex])
+    );
+  }
+  return (
+    baseDistance +
+    lerpRatio *
+      (loop.cumulativeLengths[baseIndex + 1] -
+        loop.cumulativeLengths[baseIndex])
+  );
+};
+
 export const createLoopFromPolarFunction = (
   center: Vector2d,
   polarFunction: (theta: number) => number,

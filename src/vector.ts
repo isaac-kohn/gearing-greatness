@@ -3,6 +3,11 @@ export interface Vector2d {
   y: number;
 }
 
+export interface PolarVector {
+  angle: number;
+  mag: number;
+}
+
 export const add = (a: Vector2d, b: Vector2d): Vector2d => {
   return { x: a.x + b.x, y: a.y + b.y };
 };
@@ -82,4 +87,15 @@ export const lerp = (a: Vector2d, b: Vector2d, t: number): Vector2d => {
     x: a.x + (b.x - a.x) * t,
     y: a.y + (b.y - a.y) * t,
   };
+};
+
+export const polarToVertex = (polar: PolarVector): Vector2d => {
+  return {
+    x: polar.mag * Math.cos(polar.angle),
+    y: polar.mag * Math.sin(polar.angle),
+  };
+};
+
+export const vertexToPolar = (vertex: Vector2d): PolarVector => {
+  return { angle: direction(vertex), mag: magnitude(vertex) };
 };

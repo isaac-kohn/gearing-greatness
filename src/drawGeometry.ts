@@ -1,4 +1,4 @@
-import type { PolygonalLoop } from "./geometry";
+import type { PolygonalLoop } from "./newGeometry";
 import { rotate, type Vector2d } from "./vector";
 
 export const drawPoint = (

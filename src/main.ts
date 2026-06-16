@@ -1,15 +1,17 @@
 import "./style.css";
-import {
+/*import {
   createCircleLoop,
   createConjugateLoop,
   createLoopFromPolarFunction,
   dendumize,
   indexOfCumulativeLength,
+  loopDistanceAtAngle,
   positionAtLoopDistance,
   setRotationByLoopDistance,
-} from "./geometry";
+} from "./geometry";*/
 import { drawPoint, drawPolygonalLoop } from "./drawGeometry";
 import { add, direction, lerp, rotate } from "./vector";
+import { createPolygonalLoop, interpolatePolygonalLoop } from "./newGeometry";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
@@ -55,16 +57,30 @@ function draw(timeMs: number) {
   context.strokeStyle = "#000";
   context.lineWidth = 2;
 
+  const loopA = createPolygonalLoop({ x: 0, y: 0 }, [
+    { mag: 100 + 50 * Math.cos(timeSeconds), angle: 0 },
+    { mag: 50, angle: Math.PI / 2 },
+    { mag: 50, angle: Math.PI },
+    { mag: 50, angle: (3 * Math.PI) / 2 },
+  ]);
+  const splinedLoopA = interpolatePolygonalLoop(loopA, 5);
+
+  drawPolygonalLoop(context, loopA);
+  drawPolygonalLoop(context, splinedLoopA);
+  /*
   //const circleLoop = createCircleLoop({ x: -100, y: 0 }, 200, 24);
   //drawPolygonalLoop(context, circleLoop);
 
   const peanutLoop = createLoopFromPolarFunction(
     { x: -100, y: 0 },
     (theta) => 120 - 40 * Math.cos(2 * theta),
-    124,
+    96,
   );
-  const loopTravelledRatio = timeSeconds * 0.1;
-  const loopDistance = loopTravelledRatio * peanutLoop.totalLength;
+  const loopTravelledRatio = timeSeconds * 0.3;
+  const loopDistance = loopDistanceAtAngle(
+    peanutLoop,
+    loopTravelledRatio * 2 * Math.PI,
+  ); // loopTravelledRatio * peanutLoop.totalLength;
   setRotationByLoopDistance(peanutLoop, loopDistance);
   drawPolygonalLoop(context, peanutLoop);
   const addendum = 20;
@@ -84,10 +100,10 @@ function draw(timeMs: number) {
   );
   drawPoint(context, loopDistTestPoint, 5, "blue");
 
-  const peanutConjugateLoop = createConjugateLoop(peanutLoop, { x: 100, y: 0 });
-  /*const conjugateLoopDistance =
+  const peanutConjugateLoop = createConjugateLoop(peanutLoop, { x: 90, y: 0 }); // { x: 140, y: 0 });
+  const conjugateLoopDistance =
     loopTravelledRatio * peanutConjugateLoop.totalLength;
-  setRotationByLoopDistance(peanutConjugateLoop, conjugateLoopDistance);*/
+  setRotationByLoopDistance(peanutConjugateLoop, conjugateLoopDistance);
 
   const { baseIndex, nextIndex, lerpRatio } = indexOfCumulativeLength(
     peanutLoop,
@@ -109,6 +125,7 @@ function draw(timeMs: number) {
   context.strokeStyle = "#5AA";
   drawPolygonalLoop(context, conjAddendumLoop);
   drawPolygonalLoop(context, conjDedendumLoop);
+  */
 }
 
 // runs ~60fps
