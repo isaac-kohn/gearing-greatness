@@ -76,13 +76,17 @@ const findConjugateCenterDistance = (
   const q = periodRatio.b / periodRatio.a;
   const magsA = loopA.polarVectors.map((polar) => polar.mag);
   let supA = Math.max(...magsA);
-  return numberRangeSearch(supA / q + supA, supA, (sample: number) => {
+  return numberRangeSearch(supA, supA / q + supA, (sampleLength: number) => {
     const integrand = loopA.polarVectors.map((polar): PolarVector => {
-      return { angle: polar.angle, mag: polar.mag / (sample - polar.mag) };
+      return {
+        angle: polar.angle,
+        mag: polar.mag / (sampleLength - polar.mag),
+      };
     });
     const integral = integratePolarArray(integrand);
-    if (integral > q) return "high";
-    if (integral < q) return "low";
+    console.log(integral);
+    if (integral < q * 2 * Math.PI) return "high"; // if the sample distance is too high, the gear wont rotate far enough to reach q
+    if (integral > q * 2 * Math.PI) return "low"; // if the sample distance is too low, the gear will rotate past q
     return "equal";
   });
 };
@@ -92,7 +96,18 @@ export const createConjugateLoop = (
   periodRatio: { a: number; b: number } = { a: 1, b: 1 },
 ): PolygonalLoop => {
   const centerDist = findConjugateCenterDistance(loopA, periodRatio);
-  return;
+
+  return createPolygonalLoop(
+    {
+      x: loopA.center.x + centerDist,
+      y: loopA.center.y,
+    },
+    [
+      { mag: 10, angle: 0 },
+      { mag: 20, angle: 1 },
+      { mag: 30, angle: 2 },
+    ],
+  );
 };
 
 export const uniformizePolygonalLoopAngles = (

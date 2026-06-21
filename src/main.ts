@@ -11,7 +11,11 @@ import "./style.css";
 } from "./geometry";*/
 import { drawPoint, drawPolygonalLoop } from "./drawGeometry";
 import { add, direction, lerp, rotate } from "./vector";
-import { createPolygonalLoop, interpolatePolygonalLoop } from "./newGeometry";
+import {
+  createConjugateLoop,
+  createPolygonalLoop,
+  interpolatePolygonalLoop,
+} from "./newGeometry";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
@@ -57,16 +61,27 @@ function draw(timeMs: number) {
   context.strokeStyle = "#000";
   context.lineWidth = 2;
 
-  const loopA = createPolygonalLoop({ x: 0, y: 0 }, [
-    { mag: 100 + 50 * Math.cos(timeSeconds), angle: 0 },
-    { mag: 50, angle: Math.PI / 2 },
-    { mag: 50, angle: Math.PI },
-    { mag: 50, angle: (3 * Math.PI) / 2 },
+  const loopA = createPolygonalLoop({ x: -150, y: 0 }, [
+    { mag: 150, angle: 0 },
+    { mag: 100, angle: Math.PI / 2 },
+    { mag: 150, angle: Math.PI },
+    { mag: 100, angle: (3 * Math.PI) / 2 },
   ]);
   const splinedLoopA = interpolatePolygonalLoop(loopA, 5);
 
-  drawPolygonalLoop(context, loopA);
+  const loopCircle = createPolygonalLoop(
+    { x: -150, y: 0 },
+    Array.from({ length: 10 }, (_, i) => {
+      const theta = (i / 10) * 2 * Math.PI;
+      return { mag: 100, angle: theta };
+    }),
+  );
+  //drawPolygonalLoop(context, loopCircle);
+
+  //drawPolygonalLoop(context, loopA);
   drawPolygonalLoop(context, splinedLoopA);
+  const loopB = createConjugateLoop(splinedLoopA);
+  drawPolygonalLoop(context, loopB);
   /*
   //const circleLoop = createCircleLoop({ x: -100, y: 0 }, 200, 24);
   //drawPolygonalLoop(context, circleLoop);
@@ -127,11 +142,13 @@ function draw(timeMs: number) {
   drawPolygonalLoop(context, conjDedendumLoop);
   */
 }
-
+draw(0);
 // runs ~60fps
+/*
 function animate(timeMs: number) {
   draw(timeMs);
   requestAnimationFrame(animate);
 }
 
 requestAnimationFrame(animate);
+*/

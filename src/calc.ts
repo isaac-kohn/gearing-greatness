@@ -1,8 +1,14 @@
-import { distance, lerp, type PolarVector, type Vector2d } from "./vector";
+import {
+  distance,
+  lerp,
+  normalizeAngle,
+  type PolarVector,
+  type Vector2d,
+} from "./vector";
 
 export const numberRangeSearch = (
-  upper: number,
   lower: number,
+  upper: number,
   orderRelation: (sample: number) => "high" | "low" | "equal",
   steps: number = 20,
 ): number => {
@@ -11,6 +17,7 @@ export const numberRangeSearch = (
   let mid;
   let i = 0;
   while (i < steps) {
+    console.log(lo, hi);
     mid = (hi + lo) / 2;
     const order = orderRelation(mid);
     if (order === "high") hi = mid;
@@ -23,9 +30,15 @@ export const numberRangeSearch = (
 
 export const integratePolarArray = (polarArray: PolarVector[]): number => {
   let sum = 0;
-  polarArray.forEach(
-    (polar) => (sum += (polar.mag * polar.angle) / (2 * Math.PI)),
-  );
+  const len = polarArray.length;
+  const mags = polarArray.map((polar) => polar.mag);
+  const angles = polarArray.map((polar) => polar.angle);
+  for (let i = 0; i < len - 1; i++) {
+    const angleFrac = angles[i + 1] - angles[i];
+    sum += normalizeAngle(angleFrac) * mags[i];
+  }
+  const angleFrac = angles[0] - angles[len - 1];
+  sum += normalizeAngle(angleFrac) * mags[len - 1];
   return sum;
 };
 

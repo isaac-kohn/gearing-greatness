@@ -99,3 +99,7 @@ export const polarToVertex = (polar: PolarVector): Vector2d => {
 export const vertexToPolar = (vertex: Vector2d): PolarVector => {
   return { angle: direction(vertex), mag: magnitude(vertex) };
 };
+
+export const normalizeAngle = (angle: number): number => {
+  return ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+};
