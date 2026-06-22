@@ -1,5 +1,5 @@
 import type { Vector2d, PolarVector } from "./vector";
-import { direction, distance, magnitude, polarToVertex } from "./vector";
+import { direction, distance, lerp, magnitude, polarToVertex } from "./vector";
 import {
   arrayBinarySearch,
   centripetalCatmullRom,
@@ -109,13 +109,25 @@ export const getIndexFromCumulativeLength = (
   return baseIndex + distanceLeft / endEdgeLength;
 };
 
+export const getVertexFromLoopDecimalIndex = (
+  loop: PolygonalLoop,
+  index: number,
+): Vector2d => {
+  const baseIndex = Math.floor(index);
+  const nextIndex = baseIndex + 1 < loop.vertices.length ? baseIndex + 1 : 0;
+  const lerpRatio = index - baseIndex;
+  return lerp(loop.vertices[baseIndex], loop.vertices[nextIndex], lerpRatio);
+};
+
 export const createConjugateLoop = (
   loopA: PolygonalLoop,
   periodRatio: { a: number; b: number } = { a: 1, b: 1 },
 ): PolygonalLoop => {
   const centerDist = findConjugateCenterDistance(loopA, periodRatio);
-  const mooba = getIndexFromCumulativeLength(loopA, 10);
-  console.log(mooba);
+  const ind = getIndexFromCumulativeLength(loopA, 200);
+  console.log(ind);
+  const ver = getVertexFromLoopDecimalIndex(loopA, ind);
+  console.log(ver);
 
   const lenA = loopA.polarVectors.length;
   let indexA = 0;
