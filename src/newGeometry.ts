@@ -1,6 +1,7 @@
 import type { Vector2d, PolarVector } from "./vector";
 import { direction, distance, magnitude, polarToVertex } from "./vector";
 import {
+  arrayBinarySearch,
   centripetalCatmullRom,
   integratePolarArray,
   numberRangeSearch,
@@ -84,11 +85,28 @@ const findConjugateCenterDistance = (
       };
     });
     const integral = integratePolarArray(integrand);
-    console.log(integral);
+    // console.log(integral);
     if (integral < q * 2 * Math.PI) return "high"; // if the sample distance is too high, the gear wont rotate far enough to reach q
     if (integral > q * 2 * Math.PI) return "low"; // if the sample distance is too low, the gear will rotate past q
     return "equal";
   });
+};
+
+export const getIndexFromCumulativeLength = (
+  loop: PolygonalLoop,
+  length: number,
+): number => {
+  if (length > loop.totalLength) return -1;
+  const baseIndex = arrayBinarySearch(loop.cumulativeLengths, (sample) => {
+    if (sample > length) return "high";
+    if (sample < length) return "low";
+    return "equal";
+  });
+  const nextIndex = baseIndex + 1;
+  const endEdgeLength =
+    loop.cumulativeLengths[nextIndex] - loop.cumulativeLengths[baseIndex];
+  const distanceLeft = length - loop.cumulativeLengths[baseIndex];
+  return baseIndex + distanceLeft / endEdgeLength;
 };
 
 export const createConjugateLoop = (
@@ -96,17 +114,35 @@ export const createConjugateLoop = (
   periodRatio: { a: number; b: number } = { a: 1, b: 1 },
 ): PolygonalLoop => {
   const centerDist = findConjugateCenterDistance(loopA, periodRatio);
+  const mooba = getIndexFromCumulativeLength(loopA, 10);
+  console.log(mooba);
+
+  const lenA = loopA.polarVectors.length;
+  let indexA = 0;
+  let indexB = 0;
+  let polarVectorsB: PolarVector[] = [];
+  let anlgeB = 0;
+  let angleA = 0;
+  const rotationInterval = (2 * Math.PI) / lenA;
+  while (indexB < lenA) {
+    const pitchA = loopA.polarVectors[indexA].mag;
+    const pitchB = centerDist - pitchA;
+    polarVectorsB.push({ angle: Math.PI - anlgeB, mag: pitchB });
+    if (pitchB > pitchA) {
+      const speedRatio = pitchA / pitchB;
+      anlgeB += rotationInterval;
+      angleA += speedRatio * rotationInterval;
+    }
+    indexB++;
+    indexA++;
+  }
 
   return createPolygonalLoop(
     {
       x: loopA.center.x + centerDist,
       y: loopA.center.y,
     },
-    [
-      { mag: 10, angle: 0 },
-      { mag: 20, angle: 1 },
-      { mag: 30, angle: 2 },
-    ],
+    polarVectorsB,
   );
 };
 

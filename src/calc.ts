@@ -17,7 +17,7 @@ export const numberRangeSearch = (
   let mid;
   let i = 0;
   while (i < steps) {
-    console.log(lo, hi);
+    //console.log(lo, hi);
     mid = (hi + lo) / 2;
     const order = orderRelation(mid);
     if (order === "high") hi = mid;
@@ -26,6 +26,29 @@ export const numberRangeSearch = (
     i++;
   }
   return (hi + lo) / 2;
+};
+
+export const arrayBinarySearch = <T>(
+  array: Array<T>,
+  orderRelation: (sample: T) => "high" | "low" | "equal",
+): number => {
+  let hi = array.length;
+  let lo = 0;
+  let mid;
+  let i = 0;
+  while (i < array.length) {
+    // console.log(lo, hi);
+    if (lo + 1 >= hi) {
+      return lo;
+    }
+    mid = Math.floor((hi + lo) / 2);
+    const order = orderRelation(array[mid]);
+    if (order === "high") hi = mid;
+    else if (order === "low") lo = mid;
+    else return mid;
+    i++;
+  }
+  return lo;
 };
 
 export const integratePolarArray = (polarArray: PolarVector[]): number => {

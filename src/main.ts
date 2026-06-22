@@ -62,10 +62,10 @@ function draw(timeMs: number) {
   context.lineWidth = 2;
 
   const loopA = createPolygonalLoop({ x: -150, y: 0 }, [
-    { mag: 150, angle: 0 },
-    { mag: 100, angle: Math.PI / 2 },
-    { mag: 150, angle: Math.PI },
-    { mag: 100, angle: (3 * Math.PI) / 2 },
+    { mag: 100, angle: 0 },
+    { mag: 150, angle: Math.PI / 2 },
+    { mag: 100, angle: Math.PI },
+    { mag: 150, angle: (3 * Math.PI) / 2 },
   ]);
   const splinedLoopA = interpolatePolygonalLoop(loopA, 5);
 
