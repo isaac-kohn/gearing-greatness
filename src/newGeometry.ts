@@ -1,5 +1,14 @@
-import type { Vector2d, PolarVector } from "./vector";
-import { direction, distance, lerp, magnitude, polarToVertex } from "./vector";
+import type { Vector2d, PolarVector, Line } from "./vector";
+import {
+  getAngle,
+  distance,
+  lerp,
+  lineIntersection,
+  magnitude,
+  normalizeAngle,
+  polarToVertex,
+  sub,
+} from "./vector";
 import {
   arrayBinarySearch,
   centripetalCatmullRom,
@@ -56,7 +65,7 @@ export const createPolygonalLoopFromVertices = (
   vertices: Vector2d[],
 ): PolygonalLoop => {
   const polarVectors = vertices.map((vertex): PolarVector => {
-    return { mag: magnitude(vertex), angle: direction(vertex) };
+    return { mag: magnitude(vertex), angle: getAngle(vertex) };
   });
   const { cumulativeLengths, totalLength } =
     cumulativeLengthsOfVertexPath(vertices);
@@ -92,21 +101,49 @@ const findConjugateCenterDistance = (
   });
 };
 
-export const getIndexFromCumulativeLength = (
+export const getDecimalIndexFromCumulativeLength = (
   loop: PolygonalLoop,
   length: number,
 ): number => {
   if (length > loop.totalLength) return -1;
+  if (length === loop.totalLength) return 0;
   const baseIndex = arrayBinarySearch(loop.cumulativeLengths, (sample) => {
     if (sample > length) return "high";
     if (sample < length) return "low";
     return "equal";
   });
-  const nextIndex = baseIndex + 1;
+  const nextIndex =
+    baseIndex + 1 < loop.cumulativeLengths.length ? baseIndex + 1 : 0;
   const endEdgeLength =
     loop.cumulativeLengths[nextIndex] - loop.cumulativeLengths[baseIndex];
   const distanceLeft = length - loop.cumulativeLengths[baseIndex];
   return baseIndex + distanceLeft / endEdgeLength;
+};
+
+export const getDecimalIndexFromAngle = (
+  loop: PolygonalLoop,
+  angle: number,
+): number => {
+  angle = normalizeAngle(angle);
+  const baseIndex = arrayBinarySearch(loop.polarVectors, (sample) => {
+    if (sample.angle > angle) return "high";
+    if (sample.angle < angle) return "low";
+    return "equal";
+  });
+  const nextIndex = baseIndex + 1 < loop.vertices.length ? baseIndex + 1 : 0;
+  const v0 = loop.vertices[baseIndex];
+  const v1 = loop.vertices[nextIndex];
+  const edgeLine: Line = { v0, v1 };
+  const radialVector: PolarVector = { mag: 1, angle };
+  const radialLine: Line = {
+    v0: { x: 0, y: 0 },
+    v1: polarToVertex(radialVector),
+  };
+  const intersectionVertex = lineIntersection(radialLine, edgeLine);
+  const percentToNextIndex =
+    distance(loop.vertices[baseIndex], intersectionVertex) /
+    distance(loop.vertices[nextIndex], loop.vertices[baseIndex]);
+  return baseIndex + percentToNextIndex;
 };
 
 export const getVertexFromLoopDecimalIndex = (
@@ -124,10 +161,12 @@ export const createConjugateLoop = (
   periodRatio: { a: number; b: number } = { a: 1, b: 1 },
 ): PolygonalLoop => {
   const centerDist = findConjugateCenterDistance(loopA, periodRatio);
-  const ind = getIndexFromCumulativeLength(loopA, 200);
+  const ind = getDecimalIndexFromCumulativeLength(loopA, 200);
   console.log(ind);
   const ver = getVertexFromLoopDecimalIndex(loopA, ind);
-  console.log(ver);
+  const ang = getAngle(ver);
+  const dec = getDecimalIndexFromAngle(loopA, ang);
+  console.log(dec);
 
   const lenA = loopA.polarVectors.length;
   let indexA = 0;
@@ -164,7 +203,8 @@ export const uniformizePolygonalLoopAngles = (
   return;
 };
 
-export const interpolatePolygonalLoop = (
+// uses centripital catmull-rom to add curvature between polygonal loop's existing points, kind of like subdivision in blender
+export const subdividePolygonalLoop = (
   loop: PolygonalLoop,
   resolutionMultiplier = 10,
 ): PolygonalLoop => {

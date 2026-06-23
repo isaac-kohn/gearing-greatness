@@ -1,6 +1,6 @@
 import {
   add,
-  direction,
+  getAngle,
   distance,
   lerp,
   magnitude,
@@ -95,7 +95,7 @@ export const setRotationByLoopDistance = (
   dist: number,
 ) => {
   const position = positionAtLoopDistance(loop, dist);
-  loop.rotation = direction(position);
+  loop.rotation = getAngle(position);
 };
 
 // this only works because we originally generate the polygonalLoops by creating vectors at fixed intervals of rotation around center
@@ -146,7 +146,7 @@ export const createConjugateLoop = (
 ): PolygonalLoop => {
   const dist = magnitude(sub(conjugateCenter, loop.center));
   const conjugateVertices = loop.vertices.map((vertex) => {
-    const dir = Math.PI - direction(vertex);
+    const dir = Math.PI - getAngle(vertex);
     const mag = dist - magnitude(vertex);
     return {
       x: mag * Math.cos(dir),

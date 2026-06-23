@@ -10,11 +10,11 @@ import "./style.css";
   setRotationByLoopDistance,
 } from "./geometry";*/
 import { drawPoint, drawPolygonalLoop } from "./drawGeometry";
-import { add, direction, lerp, rotate } from "./vector";
+import { add, getAngle, lerp, rotate } from "./vector";
 import {
   createConjugateLoop,
   createPolygonalLoop,
-  interpolatePolygonalLoop,
+  subdividePolygonalLoop,
 } from "./newGeometry";
 
 const canvas = document.createElement("canvas");
@@ -67,7 +67,7 @@ function draw(timeMs: number) {
     { mag: 100, angle: Math.PI },
     { mag: 150, angle: (3 * Math.PI) / 2 },
   ]);
-  const splinedLoopA = interpolatePolygonalLoop(loopA, 5);
+  const splinedLoopA = subdividePolygonalLoop(loopA, 5);
 
   const loopCircle = createPolygonalLoop(
     { x: -150, y: 0 },

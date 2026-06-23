@@ -65,6 +65,7 @@ export const integratePolarArray = (polarArray: PolarVector[]): number => {
   return sum;
 };
 
+// from wikipedia article https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline
 export const centripetalCatmullRom = (
   P0: Vector2d,
   P1: Vector2d,
