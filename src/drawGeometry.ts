@@ -1,4 +1,5 @@
-import type { PolygonalLoop } from "./newGeometry";
+import type { PitchCurve } from "./pitchCurve";
+import type { PolygonalLoop } from "./polygonalLoop";
 import { rotate, type Vector2d } from "./vector";
 
 export const drawPoint = (
@@ -35,4 +36,14 @@ export const drawPolygonalLoop = (
   if (displayCenter) {
     drawPoint(context, loop.center, 3, "red");
   }
+};
+
+export const drawPitchCurve = (
+  context: CanvasRenderingContext2D,
+  curve: PitchCurve,
+  fill = false,
+  stroke = true,
+  displayCenter = true,
+) => {
+  drawPolygonalLoop(context, curve.polygonalLoop, fill, stroke, displayCenter);
 };

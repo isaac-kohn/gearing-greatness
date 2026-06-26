@@ -8,13 +8,15 @@ import {
   normalizeAngle,
   polarToVertex,
   sub,
+  vertexToPolar,
 } from "./vector";
 import {
   arrayBinarySearch,
-  centripetalCatmullRom,
+  subdivideSegment,
   integratePolarArray,
   numberRangeSearch,
 } from "./calc";
+import { loopDistanceAtAngle } from "./geometry";
 
 export interface PolygonalLoop {
   polarVectors: PolarVector[];
@@ -126,8 +128,8 @@ export const getDecimalIndexFromAngle = (
 ): number => {
   angle = normalizeAngle(angle);
   const baseIndex = arrayBinarySearch(loop.polarVectors, (sample) => {
-    if (sample.angle > angle) return "high";
-    if (sample.angle < angle) return "low";
+    if (normalizeAngle(sample.angle) > angle) return "high";
+    if (normalizeAngle(sample.angle) < angle) return "low";
     return "equal";
   });
   const nextIndex = baseIndex + 1 < loop.vertices.length ? baseIndex + 1 : 0;
@@ -162,11 +164,11 @@ export const createConjugateLoop = (
 ): PolygonalLoop => {
   const centerDist = findConjugateCenterDistance(loopA, periodRatio);
   const ind = getDecimalIndexFromCumulativeLength(loopA, 200);
-  console.log(ind);
+  //console.log(ind);
   const ver = getVertexFromLoopDecimalIndex(loopA, ind);
   const ang = getAngle(ver);
   const dec = getDecimalIndexFromAngle(loopA, ang);
-  console.log(dec);
+  //console.log(dec);
 
   const lenA = loopA.polarVectors.length;
   let indexA = 0;
@@ -176,16 +178,38 @@ export const createConjugateLoop = (
   let angleA = 0;
   const rotationInterval = (2 * Math.PI) / lenA;
   while (indexB < lenA) {
-    const pitchA = loopA.polarVectors[indexA].mag;
+    //const pitchA = loopA.polarVectors[indexA].mag;
+    const pitchA = magnitude(getVertexFromLoopDecimalIndex(loopA, indexA));
     const pitchB = centerDist - pitchA;
     polarVectorsB.push({ angle: Math.PI - anlgeB, mag: pitchB });
-    if (pitchB > pitchA) {
-      const speedRatio = pitchA / pitchB;
+    if (pitchB >= pitchA) {
+      const speedRatio = pitchB / pitchA;
+      indexB++;
       anlgeB += rotationInterval;
       angleA += speedRatio * rotationInterval;
+      indexA = getDecimalIndexFromAngle(loopA, angleA);
+    } else {
+      const speedRatio = pitchA / pitchB;
+      angleA += rotationInterval;
+      anlgeB += speedRatio * rotationInterval;
+      indexB = anlgeB / rotationInterval;
+      indexA = getDecimalIndexFromAngle(loopA, angleA);
     }
-    indexB++;
-    indexA++;
+    /*if (pitchB >= pitchA) {
+      const speedRatio = pitchB / pitchA;
+      indexB++;
+      anlgeB += rotationInterval;
+      angleA += speedRatio * rotationInterval;
+      indexA = getDecimalIndexFromAngle(loopA, angleA);
+    } else {
+      const speedRatio = pitchA / pitchB;
+      angleA += rotationInterval;
+      anlgeB += speedRatio * rotationInterval;
+      indexB = anlgeB / rotationInterval;
+      indexA = getDecimalIndexFromAngle(loopA, angleA);
+    }*/
+    //console.log(angleA);
+    console.log(indexA);
   }
 
   return createPolygonalLoop(
@@ -215,27 +239,27 @@ export const subdividePolygonalLoop = (
   let P1 = loop.vertices[0];
   let P2 = loop.vertices[1];
   let P3 = loop.vertices[2];
-  let interpolatedSegment = centripetalCatmullRom(P0, P1, P2, P3, tSamples);
+  let interpolatedSegment = subdivideSegment(P0, P1, P2, P3, tSamples);
   newVertices.push(...interpolatedSegment);
   for (let i = 1; i < loop.vertices.length - 2; i++) {
     P0 = loop.vertices[i - 1];
     P1 = loop.vertices[i];
     P2 = loop.vertices[i + 1];
     P3 = loop.vertices[i + 2];
-    interpolatedSegment = centripetalCatmullRom(P0, P1, P2, P3, tSamples);
+    interpolatedSegment = subdivideSegment(P0, P1, P2, P3, tSamples);
     newVertices.push(...interpolatedSegment);
   }
   P0 = loop.vertices[loop.vertices.length - 3];
   P1 = loop.vertices[loop.vertices.length - 2];
   P2 = loop.vertices[loop.vertices.length - 1];
   P3 = loop.vertices[0];
-  interpolatedSegment = centripetalCatmullRom(P0, P1, P2, P3, tSamples);
+  interpolatedSegment = subdivideSegment(P0, P1, P2, P3, tSamples);
   newVertices.push(...interpolatedSegment);
   P0 = loop.vertices[loop.vertices.length - 2];
   P1 = loop.vertices[loop.vertices.length - 1];
   P2 = loop.vertices[0];
   P3 = loop.vertices[1];
-  interpolatedSegment = centripetalCatmullRom(P0, P1, P2, P3, tSamples);
+  interpolatedSegment = subdivideSegment(P0, P1, P2, P3, tSamples);
   newVertices.push(...interpolatedSegment);
   return createPolygonalLoopFromVertices(loop.center, newVertices);
 };
