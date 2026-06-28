@@ -56,6 +56,7 @@ export const arrayBinarySearch = <T>(
     if (lo + 1 >= hi) {
       return lo;
     }
+    // biased towards lo
     mid = Math.floor((hi + lo) / 2);
     const order = orderRelation(array[mid]);
     if (order === "high") hi = mid;

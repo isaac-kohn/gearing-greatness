@@ -1,7 +1,11 @@
 import "./style.css";
 
 import { drawPitchCurve } from "./drawGeometry";
-import { createConjugatePitchCurve, createPitchCurve } from "./pitchCurve";
+import {
+  createConjugatePitchCurve,
+  createPitchCurve,
+  setCurveAngle,
+} from "./pitchCurve";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
@@ -37,6 +41,20 @@ function resizeCanvas() {
 
 resizeCanvas();
 
+const pitchCurveA = createPitchCurve(
+  {
+    fn: (u) => {
+      return { mag: 100 - 50 * Math.cos(3 * u), angle: u };
+    },
+    domainMax: 2 * Math.PI,
+    domainMin: 0,
+  },
+  { x: -100, y: 0 },
+  1000,
+  100,
+);
+const pitchCurveB = createConjugatePitchCurve(pitchCurveA);
+
 function draw(timeMs: number) {
   const timeSeconds = timeMs / 1000;
 
@@ -47,26 +65,20 @@ function draw(timeMs: number) {
   context.strokeStyle = "#000";
   context.lineWidth = 2;
 
-  const pitchCurve = createPitchCurve({
-    fn: (u) => {
-      return { mag: 100 - 50 * Math.cos(3 * u), angle: u };
-    },
-    domainMax: 2 * Math.PI,
-    domainMin: 0,
-  });
-  drawPitchCurve(context, pitchCurve);
+  setCurveAngle(pitchCurveB, timeSeconds);
 
-  const conjPitchCurve = createConjugatePitchCurve(pitchCurve);
-  console.log(conjPitchCurve);
-  drawPitchCurve(context, conjPitchCurve);
+  context.fillStyle = "#ff0";
+  drawPitchCurve(context, pitchCurveA, true);
+  context.fillStyle = "#ff0";
+  context.fillStyle = "#0ff";
+  drawPitchCurve(context, pitchCurveB, true);
 }
 draw(0);
 // runs ~60fps
-/*
+
 function animate(timeMs: number) {
-  draw(timeMs);
+  draw(2 * timeMs);
   requestAnimationFrame(animate);
 }
-  
 
-requestAnimationFrame(animate);*/
+requestAnimationFrame(animate);
