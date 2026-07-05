@@ -4,7 +4,7 @@ import {
   distance,
   lerp,
   magnitude,
-  normal,
+  normalizeVector,
   scale,
   sub,
   type Vector2d,
@@ -176,7 +176,7 @@ export const dendumize = (
   distance: number,
 ): PolygonalLoop => {
   const vertices = loop.vertices.map((vertex) =>
-    add(vertex, scale(normal(vertex), distance)),
+    add(vertex, scale(normalizeVector(vertex), distance)),
   );
   return createPolygonalLoop(vertices, loop.center, loop.rotation);
 };

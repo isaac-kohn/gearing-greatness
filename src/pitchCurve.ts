@@ -1,6 +1,7 @@
 import { createPolygonalLoop } from "./polygonalLoop";
 import type { PolygonalLoop } from "./polygonalLoop";
 import {
+  distance,
   lerp,
   normalizeAngle,
   polarToVertex,
@@ -10,38 +11,33 @@ import {
 } from "./vector";
 import {
   arrayBinarySearch,
+  discretePolarArrayToPolarParameterization,
+  discretizePolarParamaterization,
   integratePolarArray,
   numberRangeSearch,
   type PolarParamaterization,
 } from "./calc";
 
 export interface PitchCurve {
-  // polar parameterization is the high fidelity source of truth
+  // polar parameterization is the "true" analytic curve.
+  // idk if i will keep this though, since i'm pretty sure its non-trivial to get this for the conjugate pitch curve
+  // meaning i'd have to resort to discrete sampling anyways, so i'll have to prove the value/lack of value of this when things are clearer
   polarParamaterization: PolarParamaterization;
-  // polygonal loop defines rendering / export geometry
-  polygonalLoop: PolygonalLoop;
+  // but in practice, we can't analytically solve for everything, so we use fidelicDiscrete loop which is a densely sampled array of the above
+  // fidelicDiscreteLoop: PolygonalLoop;
+  // we don't need as many vertices as fidelicDiscreteLoop for rendering / export geometry, so we use renderedDiscreteLoop
+  renderedDiscreteLoop: PolygonalLoop;
   // when a conjugate curve is generated, the index of angleA will have the same index as the correct angleB
   thetaMap: number[];
-  // the number of veritces to be used in the conjugate curve / theta maps
+  // distance travelled along the curve at each sample for a linear sample in polar's param with #fidelity points
+  cumulativeLengths: number[];
+  totalLength: number;
+  // the number of veritces to be used in fidelicDiscreteLoop
   fidelity: number;
-  // the number of vertices to be used in the polygonalLoop rendering geometry
+  // the number of vertices to be used in the renderedDiscreteLoop rendering geometry
   renderFidelity: number;
   matedCurves: PitchCurve[];
 }
-
-const discretizePolarParamaterization = (
-  polarParamaterization: PolarParamaterization,
-  numSamples = 0,
-): PolarVector[] => {
-  if (numSamples === 0) numSamples = 50;
-  const maxDom = polarParamaterization.domainMax;
-  const minDom = polarParamaterization.domainMin;
-  const paramSamples = Array.from(
-    { length: numSamples },
-    (_, k) => (k * (maxDom - minDom)) / numSamples,
-  );
-  return paramSamples.map(polarParamaterization.fn);
-};
 
 export const createPitchCurve = (
   polarParamaterization: PolarParamaterization,
@@ -54,9 +50,15 @@ export const createPitchCurve = (
     renderFidelity,
   );
   const polygonalLoop = createPolygonalLoop(center, polarVectors);
+  const { cumulativeLengths, totalLength } = generateCumulativeLengths(
+    polarParamaterization,
+    fidelity,
+  );
   return {
     polarParamaterization,
-    polygonalLoop,
+    renderedDiscreteLoop: polygonalLoop,
+    cumulativeLengths,
+    totalLength,
     thetaMap: [],
     fidelity,
     renderFidelity,
@@ -95,15 +97,15 @@ export const createConjugatePitchCurve = (
   pitchCurveA: PitchCurve,
 ): PitchCurve => {
   const L = findConjugateCenterDistance(pitchCurveA);
-  const numSamples = pitchCurveA.fidelity;
+  const fidelity = pitchCurveA.fidelity;
   let polarArrayB: PolarVector[] = [];
   let thetaArrayA: number[] = [];
   let thetaB = 0;
   let thetaA = 0;
-  for (let i = 0; i < numSamples; i++) {
+  for (let i = 0; i < fidelity; i++) {
     const maxDom = pitchCurveA.polarParamaterization.domainMax;
     const minDom = pitchCurveA.polarParamaterization.domainMin;
-    const t = minDom + (i * (maxDom - minDom)) / numSamples;
+    const t = minDom + (i * (maxDom - minDom)) / fidelity;
     const polarA = pitchCurveA.polarParamaterization.fn(t);
     const prevThetaA = thetaA;
     thetaA = polarA.angle;
@@ -114,19 +116,8 @@ export const createConjugatePitchCurve = (
     thetaB += (deltaThetaA * magA) / magB;
     thetaArrayA.push(prevThetaA);
   }
-  const bParamLerp = (u: number): PolarVector => {
-    const baseIndex = Math.floor(u);
-    const lerpRatio = u - baseIndex;
-    const nextIndex = baseIndex + 1 < polarArrayB.length ? baseIndex + 1 : 0;
-    const v0 = polarArrayB[baseIndex];
-    const v1 = polarArrayB[nextIndex];
-    return vertexToPolar(lerp(polarToVertex(v0), polarToVertex(v1), lerpRatio));
-  };
-  const polarParamB: PolarParamaterization = {
-    fn: bParamLerp,
-    domainMax: polarArrayB.length,
-    domainMin: 0,
-  };
+  const polarParamB: PolarParamaterization =
+    discretePolarArrayToPolarParameterization(polarArrayB);
   let polyPolars = discretizePolarParamaterization(
     polarParamB,
     pitchCurveA.renderFidelity,
@@ -135,17 +126,23 @@ export const createConjugatePitchCurve = (
   polyPolars = polyPolars.map((polar) => {
     return { mag: polar.mag, angle: Math.PI - polar.angle };
   });
-  const centerPosA = pitchCurveA.polygonalLoop.center;
+  const centerPosA = pitchCurveA.renderedDiscreteLoop.center;
   const polygonalLoop = createPolygonalLoop(
     { x: centerPosA.x + L, y: centerPosA.y },
     polyPolars,
   );
   const thetaMapB = polarArrayB.map((polar) => polar.angle);
   pitchCurveA.thetaMap = thetaArrayA;
+  const { cumulativeLengths, totalLength } = generateCumulativeLengths(
+    polarParamB,
+    fidelity,
+  );
   const pitchCurveB: PitchCurve = {
     polarParamaterization: polarParamB,
-    polygonalLoop,
+    renderedDiscreteLoop: polygonalLoop,
     thetaMap: thetaMapB,
+    cumulativeLengths,
+    totalLength,
     fidelity: pitchCurveA.fidelity,
     renderFidelity: pitchCurveA.renderFidelity,
     matedCurves: [pitchCurveA],
@@ -156,7 +153,7 @@ export const createConjugatePitchCurve = (
 
 export const setCurveAngle = (pitchCurve: PitchCurve, angle: number): void => {
   angle = normalizeAngle(angle);
-  pitchCurve.polygonalLoop.rotation = angle;
+  pitchCurve.renderedDiscreteLoop.rotation = angle;
   // search thetaMap for the an index approximation to the given angle
   const baseIndex = arrayBinarySearch(pitchCurve.thetaMap, (sampleAngle) => {
     sampleAngle = normalizeAngle(sampleAngle);
@@ -176,7 +173,54 @@ export const setCurveAngle = (pitchCurve: PitchCurve, angle: number): void => {
     const mateCurveTargetAngle =
       mate.thetaMap[baseIndex] +
       lerpRatio * (mate.thetaMap[nextIndex] - mate.thetaMap[baseIndex]);
-    mate.polygonalLoop.rotation = -mateCurveTargetAngle;
+    mate.renderedDiscreteLoop.rotation = -mateCurveTargetAngle;
     // setCurveAngle(mate, mateCurveTargetAngle);
   });
+};
+
+export const findIndexOfCumulativeLength = (
+  cumulativeLengths: number[],
+  totalLength: number,
+  targetLength: number,
+): number => {
+  const fidelity = cumulativeLengths.length;
+  targetLength = ((targetLength % totalLength) + targetLength) % totalLength;
+  if (targetLength > cumulativeLengths[fidelity - 1]) {
+    const baseIndex = fidelity;
+    return baseIndex;
+  }
+  const baseIndex = arrayBinarySearch(cumulativeLengths, (sampleLength) => {
+    if (sampleLength > targetLength) return "high";
+    if (sampleLength < targetLength) return "low";
+    return "equal";
+  });
+  return baseIndex;
+};
+
+const generateCumulativeLengths = (
+  polarParamaterization: PolarParamaterization,
+  fidelity: number,
+): { cumulativeLengths: number[]; totalLength: number } => {
+  const t0 = polarParamaterization.domainMin;
+  const tf = polarParamaterization.domainMax;
+  let v0: Vector2d;
+  let v1: Vector2d;
+  let totalLength = 0;
+  let cumulativeLengths: number[] = [0];
+  for (let i = 0; i + 1 < fidelity; i++) {
+    const sample0 = t0 + (i * (tf - t0)) / fidelity;
+    const sample1 = t0 + ((i + 1) * (tf - t0)) / fidelity;
+    v0 = polarToVertex(polarParamaterization.fn(sample0));
+    v1 = polarToVertex(polarParamaterization.fn(sample1));
+    const d = distance(v0, v1);
+    totalLength += d;
+    cumulativeLengths.push(totalLength);
+  }
+  const sample0 = t0 + ((fidelity - 1) * (tf - t0)) / fidelity;
+  const sample1 = t0;
+  v0 = polarToVertex(polarParamaterization.fn(sample0));
+  v1 = polarToVertex(polarParamaterization.fn(sample1));
+  const d = distance(v0, v1);
+  totalLength += d;
+  return { cumulativeLengths, totalLength };
 };

@@ -1,8 +1,9 @@
-import type { PolygonalLoop } from "./polygonalLoop";
 import {
   distance,
   lerp,
   normalizeAngle,
+  polarToVertex,
+  vertexToPolar,
   type PolarVector,
   type Vector2d,
 } from "./vector";
@@ -79,6 +80,34 @@ export const integratePolarArray = (polarArray: PolarVector[]): number => {
   const angleFrac = angles[0] - angles[len - 1];
   sum += normalizeAngle(angleFrac) * mags[len - 1];
   return sum;
+};
+
+export const discretizePolarParamaterization = (
+  polarParamaterization: PolarParamaterization,
+  numSamples = 0,
+): PolarVector[] => {
+  if (numSamples === 0) numSamples = 50;
+  const maxDom = polarParamaterization.domainMax;
+  const minDom = polarParamaterization.domainMin;
+  const paramSamples = Array.from(
+    { length: numSamples },
+    (_, k) => (k * (maxDom - minDom)) / numSamples,
+  );
+  return paramSamples.map(polarParamaterization.fn);
+};
+
+export const discretePolarArrayToPolarParameterization = (
+  polarVectors: PolarVector[],
+): PolarParamaterization => {
+  const paramLerp = (u: number): PolarVector => {
+    const baseIndex = Math.floor(u);
+    const lerpRatio = u - baseIndex;
+    const nextIndex = baseIndex + 1 < polarVectors.length ? baseIndex + 1 : 0;
+    const v0 = polarVectors[baseIndex];
+    const v1 = polarVectors[nextIndex];
+    return vertexToPolar(lerp(polarToVertex(v0), polarToVertex(v1), lerpRatio));
+  };
+  return { fn: paramLerp, domainMin: 0, domainMax: polarVectors.length };
 };
 
 // from wikipedia article https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline

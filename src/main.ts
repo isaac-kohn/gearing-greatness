@@ -1,11 +1,12 @@
 import "./style.css";
 
-import { drawPitchCurve } from "./drawGeometry";
+import { drawGear, drawPitchCurve } from "./drawGeometry";
 import {
   createConjugatePitchCurve,
   createPitchCurve,
   setCurveAngle,
 } from "./pitchCurve";
+import { createGear } from "./gear";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
@@ -44,16 +45,30 @@ resizeCanvas();
 const pitchCurveA = createPitchCurve(
   {
     fn: (u) => {
-      return { mag: 100 - 50 * Math.cos(3 * u), angle: u };
+      return { mag: 100 - 10 * Math.cos(3 * u), angle: u };
     },
     domainMax: 2 * Math.PI,
     domainMin: 0,
   },
   { x: -100, y: 0 },
   1000,
-  100,
+  30,
 );
 const pitchCurveB = createConjugatePitchCurve(pitchCurveA);
+
+const gearA = createGear(
+  {
+    fn: (u) => {
+      return { mag: 100 - 20 * Math.cos(3 * u), angle: u };
+    },
+    domainMax: 2 * Math.PI,
+    domainMin: 0,
+  },
+  20,
+  15,
+  17,
+  { x: -100, y: 0 },
+);
 
 function draw(timeMs: number) {
   const timeSeconds = timeMs / 1000;
@@ -72,12 +87,14 @@ function draw(timeMs: number) {
   context.fillStyle = "#ff0";
   context.fillStyle = "#0ff";
   drawPitchCurve(context, pitchCurveB, true);
+
+  drawGear(context, gearA);
 }
 draw(0);
 // runs ~60fps
 
 function animate(timeMs: number) {
-  draw(2 * timeMs);
+  draw(timeMs);
   requestAnimationFrame(animate);
 }
 

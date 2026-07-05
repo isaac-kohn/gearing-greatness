@@ -1,6 +1,7 @@
+import type { Gear } from "./gear";
 import type { PitchCurve } from "./pitchCurve";
 import type { PolygonalLoop } from "./polygonalLoop";
-import { rotate, type Vector2d } from "./vector";
+import { add, rotate, type Vector2d } from "./vector";
 
 export const drawPoint = (
   context: CanvasRenderingContext2D,
@@ -45,5 +46,29 @@ export const drawPitchCurve = (
   stroke = true,
   displayCenter = true,
 ) => {
-  drawPolygonalLoop(context, curve.polygonalLoop, fill, stroke, displayCenter);
+  drawPolygonalLoop(
+    context,
+    curve.renderedDiscreteLoop,
+    fill,
+    stroke,
+    displayCenter,
+  );
+};
+
+export const drawGear = (
+  context: CanvasRenderingContext2D,
+  gear: Gear,
+  fill = false,
+  stroke = true,
+  displayCenter = true,
+) => {
+  drawPitchCurve(context, gear.pitchCurve, fill, stroke, displayCenter);
+  drawPolygonalLoop(context, gear.polyAddendum, fill, stroke, displayCenter);
+  drawPolygonalLoop(context, gear.polyDedendum, fill, stroke, displayCenter);
+  for (const toothRoot of gear.toothRoots) {
+    drawPoint(
+      context,
+      add(gear.pitchCurve.renderedDiscreteLoop.center, toothRoot.vertex),
+    );
+  }
 };

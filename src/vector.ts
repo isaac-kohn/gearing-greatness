@@ -77,7 +77,7 @@ export const rotate = (v: Vector2d, radians: number): Vector2d => {
   };
 };
 
-export const normal = (v: Vector2d): Vector2d => {
+export const normalizeVector = (v: Vector2d): Vector2d => {
   const m = magnitude(v);
 
   if (m === 0) return { x: 0, y: 0 };
