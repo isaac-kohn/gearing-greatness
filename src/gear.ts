@@ -8,9 +8,14 @@ import {
   findIndexOfCumulativeLength,
   type PitchCurve,
 } from "./pitchCurve";
-import { createPolygonalLoop, type PolygonalLoop } from "./polygonalLoop";
+import {
+  createPolygonalLoop,
+  curvatureAtIndex,
+  type PolygonalLoop,
+} from "./polygonalLoop";
 import {
   add,
+  magnitude,
   normalizeVector,
   perp,
   polarToVertex,
@@ -29,6 +34,7 @@ export interface Gear {
   dedendumFn: PolarParamaterization;
   // the t such that pitchCurve.fn(t) gives the point at which each tooth intersects the pitch curve
   toothRoots: { index: number; vertex: Vector2d }[];
+  toothFlanks: Vector2d[][];
   // like for pitch curve, the polygonal loops are used for rendering, while the paramaterizations are used for high fidelity geometry computation
   polyAddendum: PolygonalLoop;
   polyDedendum: PolygonalLoop;
@@ -89,7 +95,27 @@ const generateToothRoots = (
   return toothRoots;
 };
 
-const generateToothFlanks = () => {};
+const generateToothFlanks = (
+  toothRoots: { index: number; vertex: Vector2d }[],
+  pitchCurve: PitchCurve,
+): Vector2d[][] => {
+  const flankFidelity = Math.ceil(pitchCurve.fidelity / toothRoots.length);
+  const veritces = pitchCurve.fidelicDiscreteLoop.vertices;
+  const toothFlanks: Vector2d[][] = toothRoots.map((toothRoot) => {
+    //toothFlanks.push([toothRoot.vertex, scale(toothRoot.vertex, 1.5)]);
+    let toothFlank = [];
+    for (let i = 0; i < flankFidelity; i++) {
+      toothFlank.push(
+        scale(
+          toothRoot.vertex,
+          1 / (curvatureAtIndex(veritces, i) * magnitude(toothRoot.vertex)),
+        ),
+      );
+    }
+    return toothFlank;
+  });
+  return toothFlanks;
+};
 
 export const createGear = (
   polarParamaterization: PolarParamaterization,
@@ -122,6 +148,7 @@ export const createGear = (
     pitchCurve.cumulativeLengths,
     pitchCurve.polarParamaterization,
   );
+  const toothFlanks = generateToothFlanks(toothRoots, pitchCurve);
   return {
     pitchCurve,
     numTeeth,
@@ -135,5 +162,6 @@ export const createGear = (
     renderFidelity,
     renderMode: "default",
     toothRoots,
+    toothFlanks,
   };
 };

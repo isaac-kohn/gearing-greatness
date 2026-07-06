@@ -1,6 +1,10 @@
 import "./style.css";
 
-import { drawGear, drawPitchCurve } from "./drawGeometry";
+import {
+  drawCircleOfBestFitAtLoopIndex,
+  drawGear,
+  drawPitchCurve,
+} from "./drawGeometry";
 import {
   createConjugatePitchCurve,
   createPitchCurve,
@@ -89,6 +93,11 @@ function draw(timeMs: number) {
   drawPitchCurve(context, pitchCurveB, true);
 
   drawGear(context, gearA);
+  drawCircleOfBestFitAtLoopIndex(
+    context,
+    gearA.pitchCurve.fidelicDiscreteLoop,
+    timeSeconds * 60,
+  );
 }
 draw(0);
 // runs ~60fps

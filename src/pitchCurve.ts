@@ -24,7 +24,7 @@ export interface PitchCurve {
   // meaning i'd have to resort to discrete sampling anyways, so i'll have to prove the value/lack of value of this when things are clearer
   polarParamaterization: PolarParamaterization;
   // but in practice, we can't analytically solve for everything, so we use fidelicDiscrete loop which is a densely sampled array of the above
-  // fidelicDiscreteLoop: PolygonalLoop;
+  fidelicDiscreteLoop: PolygonalLoop;
   // we don't need as many vertices as fidelicDiscreteLoop for rendering / export geometry, so we use renderedDiscreteLoop
   renderedDiscreteLoop: PolygonalLoop;
   // when a conjugate curve is generated, the index of angleA will have the same index as the correct angleB
@@ -45,11 +45,16 @@ export const createPitchCurve = (
   fidelity = 1000,
   renderFidelity = 100,
 ): PitchCurve => {
-  const polarVectors = discretizePolarParamaterization(
+  const renderedPolarVectors = discretizePolarParamaterization(
     polarParamaterization,
     renderFidelity,
   );
-  const polygonalLoop = createPolygonalLoop(center, polarVectors);
+  const fidelicPolarVectors = discretizePolarParamaterization(
+    polarParamaterization,
+    fidelity,
+  );
+  const polygonalLoop = createPolygonalLoop(center, renderedPolarVectors);
+  const fidelicDiscreteLoop = createPolygonalLoop(center, fidelicPolarVectors);
   const { cumulativeLengths, totalLength } = generateCumulativeLengths(
     polarParamaterization,
     fidelity,
@@ -57,6 +62,7 @@ export const createPitchCurve = (
   return {
     polarParamaterization,
     renderedDiscreteLoop: polygonalLoop,
+    fidelicDiscreteLoop,
     cumulativeLengths,
     totalLength,
     thetaMap: [],
@@ -131,6 +137,18 @@ export const createConjugatePitchCurve = (
     { x: centerPosA.x + L, y: centerPosA.y },
     polyPolars,
   );
+  let fidelicPolyPolars = discretizePolarParamaterization(
+    polarParamB,
+    pitchCurveA.fidelity,
+  );
+  // we mirror bro
+  fidelicPolyPolars = polyPolars.map((polar) => {
+    return { mag: polar.mag, angle: Math.PI - polar.angle };
+  });
+  const fidelicDiscreteLoop = createPolygonalLoop(
+    { x: centerPosA.x + L, y: centerPosA.y },
+    fidelicPolyPolars,
+  );
   const thetaMapB = polarArrayB.map((polar) => polar.angle);
   pitchCurveA.thetaMap = thetaArrayA;
   const { cumulativeLengths, totalLength } = generateCumulativeLengths(
@@ -140,6 +158,7 @@ export const createConjugatePitchCurve = (
   const pitchCurveB: PitchCurve = {
     polarParamaterization: polarParamB,
     renderedDiscreteLoop: polygonalLoop,
+    fidelicDiscreteLoop,
     thetaMap: thetaMapB,
     cumulativeLengths,
     totalLength,

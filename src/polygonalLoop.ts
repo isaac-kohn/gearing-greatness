@@ -1,6 +1,7 @@
+import { cross, dot } from "./vector";
 import type { PolarVector, Vector2d } from "./vector";
 
-import { polarToVertex, distance } from "./vector";
+import { polarToVertex, distance, sub, getAngle, rotate } from "./vector";
 
 export interface PolygonalLoop {
   polarVectors: PolarVector[];
@@ -44,4 +45,34 @@ export const createPolygonalLoop = (
     totalLength,
     rotation: 0,
   };
+};
+
+// menger curvature: https://en.wikipedia.org/wiki/Menger_curvature
+export const curvatureAtIndex = (
+  vertices: Vector2d[],
+  index: number,
+): number => {
+  index = Math.round(index);
+  const len = vertices.length;
+  if (len < 3) return 0;
+
+  const i0 = ((index % len) - 1 + len) % len;
+  const i1 = ((index % len) + len) % len;
+  const i2 = (((index + 1) % len) + len) % len;
+
+  const v0 = vertices[i0];
+  const v1 = vertices[i1];
+  const v2 = vertices[i2];
+
+  const tang0 = sub(v1, v0);
+  const tang1 = sub(v2, v1);
+
+  const side0 = distance(v0, v1);
+  const side1 = distance(v1, v2);
+  const side2 = distance(v0, v2);
+
+  if (side0 === 0 || side1 === 0 || side2 === 0) return 0;
+
+  const theta = Math.atan2(cross(tang0, tang1), dot(tang0, tang1));
+  return (2 * Math.sin(theta)) / side2;
 };

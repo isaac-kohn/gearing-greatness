@@ -1,7 +1,15 @@
 import type { Gear } from "./gear";
 import type { PitchCurve } from "./pitchCurve";
-import type { PolygonalLoop } from "./polygonalLoop";
-import { add, rotate, type Vector2d } from "./vector";
+import { curvatureAtIndex, type PolygonalLoop } from "./polygonalLoop";
+import {
+  add,
+  magnitude,
+  normalizeVector,
+  rotate,
+  scale,
+  sub,
+  type Vector2d,
+} from "./vector";
 
 export const drawPoint = (
   context: CanvasRenderingContext2D,
@@ -39,6 +47,23 @@ export const drawPolygonalLoop = (
   }
 };
 
+export const drawPolygonalChain = (
+  context: CanvasRenderingContext2D,
+  vertices: Vector2d[],
+  center: Vector2d,
+  fill = false,
+  stroke = true,
+) => {
+  vertices = vertices.map((vertex) => add(center, vertex));
+  context.beginPath();
+  context.moveTo(vertices[0].x, vertices[0].y);
+  for (let i = 1; i < vertices.length; i++) {
+    context.lineTo(vertices[i].x, vertices[i].y);
+  }
+  fill && context.fill();
+  stroke && context.stroke();
+};
+
 export const drawPitchCurve = (
   context: CanvasRenderingContext2D,
   curve: PitchCurve,
@@ -71,4 +96,33 @@ export const drawGear = (
       add(gear.pitchCurve.renderedDiscreteLoop.center, toothRoot.vertex),
     );
   }
+  for (const toothFlanks of gear.toothFlanks) {
+    drawPolygonalChain(
+      context,
+      toothFlanks,
+      gear.pitchCurve.renderedDiscreteLoop.center,
+    );
+  }
+};
+
+export const drawCircleOfBestFitAtLoopIndex = (
+  context: CanvasRenderingContext2D,
+  loop: PolygonalLoop,
+  index: number,
+) => {
+  const vertices = loop.vertices;
+  index = Math.round(index);
+  const len = vertices.length;
+  const index0 = ((index % len) + len) % len;
+  const index1 = (((index + 1) % len) + len) % len;
+  const curvature = curvatureAtIndex(vertices, index);
+  const radius = 1 / curvature;
+  const center = loop.center;
+  const v0 = vertices[index0];
+  const v1 = vertices[index1];
+  const tang = sub(v1, v0);
+  const norm = normalizeVector(rotate(tang, Math.PI / 2));
+  const circCenter = add(v0, add(center, scale(norm, radius)));
+  context.arc(circCenter.x, circCenter.y, Math.abs(radius), 0, 2 * Math.PI);
+  context.stroke();
 };
