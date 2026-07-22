@@ -1,4 +1,4 @@
-import { cross, dot } from "./vector";
+import { cross, dot, normalizeVector } from "./vector";
 import type { PolarVector, Vector2d } from "./vector";
 
 import { polarToVertex, distance, sub, getAngle, rotate } from "./vector";
@@ -34,7 +34,7 @@ export const createPolygonalLoop = (
   center: Vector2d,
   polarVectors: PolarVector[],
 ): PolygonalLoop => {
-  const vertices = polarVectors.map((polar) => polarToVertex(polar));
+  const vertices = polarVectors.map(polarToVertex);
   const { cumulativeLengths, totalLength } =
     cumulativeLengthsOfVertexPath(vertices);
   return {
@@ -45,6 +45,14 @@ export const createPolygonalLoop = (
     totalLength,
     rotation: 0,
   };
+};
+
+export const tangentAtIndex = (
+  vertices: Vector2d[],
+  index: number,
+): Vector2d => {
+  const nextIndex = index + 1 < vertices.length ? index + 1 : 0;
+  return normalizeVector(sub(vertices[nextIndex], vertices[index]));
 };
 
 // menger curvature: https://en.wikipedia.org/wiki/Menger_curvature

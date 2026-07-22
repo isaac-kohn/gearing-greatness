@@ -10,7 +10,7 @@ import {
   createPitchCurve,
   setCurveAngle,
 } from "./pitchCurve";
-import { createGear } from "./gear";
+import { createConjugateGear, createGear } from "./gear";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
@@ -68,11 +68,13 @@ const gearA = createGear(
     domainMax: 2 * Math.PI,
     domainMin: 0,
   },
-  20,
+  30,
+  70,
   15,
   17,
-  { x: -100, y: 0 },
 );
+
+//const gearB = createConjugateGear(gearA);
 
 function draw(timeMs: number) {
   const timeSeconds = timeMs / 1000;
@@ -87,16 +89,19 @@ function draw(timeMs: number) {
   setCurveAngle(pitchCurveB, timeSeconds);
 
   context.fillStyle = "#ff0";
-  drawPitchCurve(context, pitchCurveA, true);
+  //drawPitchCurve(context, pitchCurveA, true);
   context.fillStyle = "#ff0";
   context.fillStyle = "#0ff";
-  drawPitchCurve(context, pitchCurveB, true);
+  //drawPitchCurve(context, pitchCurveB, true);
 
-  drawGear(context, gearA);
+  drawGear(context, gearA, Math.floor(timeSeconds * 60 * 0.2));
+  //drawGear(context, gearB);
+  //setCurveAngle(gearB.pitchCurve, timeSeconds);
   drawCircleOfBestFitAtLoopIndex(
     context,
     gearA.pitchCurve.fidelicDiscreteLoop,
-    timeSeconds * 60,
+    timeSeconds * 60 * 0.2,
+    (30 * Math.PI) / 180,
   );
 }
 draw(0);

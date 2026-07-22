@@ -8,6 +8,7 @@ import {
   rotate,
   scale,
   sub,
+  type Line,
   type Vector2d,
 } from "./vector";
 
@@ -83,23 +84,51 @@ export const drawPitchCurve = (
 export const drawGear = (
   context: CanvasRenderingContext2D,
   gear: Gear,
-  fill = false,
-  stroke = true,
-  displayCenter = true,
+  index: undefined | number = undefined,
 ) => {
-  drawPitchCurve(context, gear.pitchCurve, fill, stroke, displayCenter);
-  drawPolygonalLoop(context, gear.polyAddendum, fill, stroke, displayCenter);
-  drawPolygonalLoop(context, gear.polyDedendum, fill, stroke, displayCenter);
+  const fidelity = gear.fidelity;
+  if (index !== undefined) {
+    index = Math.floor(index);
+    index = ((index % fidelity) + fidelity) % fidelity;
+  }
+  drawPitchCurve(context, gear.pitchCurve);
+  context.lineWidth = 0.5;
+  drawPolygonalLoop(context, gear.baseCurve.renderedDiscreteLoop);
+  context.lineWidth = 1;
+  context.strokeStyle = "#0ff";
+  /*
+  gear.pitchCurve.renderedDiscreteLoop.vertices.forEach((v0, i) => {
+    const v1 = gear.baseCurve.renderedDiscreteLoop.vertices[i];
+    context.beginPath();
+    context.moveTo(v0.x, v0.y);
+    context.lineTo(v1.x, v1.y);
+    context.stroke();
+  });*/
+  const v0 = gear.pitchCurve.fidelicDiscreteLoop.vertices[index];
+  const v1 = gear.baseCurve.fidelicDiscreteLoop.vertices[index];
+  context.strokeStyle = "#00f";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(v0.x, v0.y);
+  context.lineTo(v1.x, v1.y);
+  context.stroke();
+  //drawPolygonalLoop(context, gear.polyAddendum, fill, stroke, displayCenter);
+  //drawPolygonalLoop(context, gear.polyDedendum);
   for (const toothRoot of gear.toothRoots) {
     drawPoint(
       context,
       add(gear.pitchCurve.renderedDiscreteLoop.center, toothRoot.vertex),
     );
   }
-  for (const toothFlanks of gear.toothFlanks) {
+  for (const toothFlank of gear.toothFlanks) {
     drawPolygonalChain(
       context,
-      toothFlanks,
+      toothFlank.tip,
+      gear.pitchCurve.renderedDiscreteLoop.center,
+    );
+    drawPolygonalChain(
+      context,
+      toothFlank.base,
       gear.pitchCurve.renderedDiscreteLoop.center,
     );
   }
@@ -109,6 +138,7 @@ export const drawCircleOfBestFitAtLoopIndex = (
   context: CanvasRenderingContext2D,
   loop: PolygonalLoop,
   index: number,
+  pressureAngle: number,
 ) => {
   const vertices = loop.vertices;
   index = Math.round(index);
@@ -122,7 +152,33 @@ export const drawCircleOfBestFitAtLoopIndex = (
   const v1 = vertices[index1];
   const tang = sub(v1, v0);
   const norm = normalizeVector(rotate(tang, Math.PI / 2));
-  const circCenter = add(v0, add(center, scale(norm, radius)));
+  let circCenter = add(v0, scale(norm, radius));
+  circCenter = add(center, rotate(circCenter, loop.rotation));
+  context.lineWidth = 1;
+  //context.strokeStyle = "#000";
+  context.beginPath();
   context.arc(circCenter.x, circCenter.y, Math.abs(radius), 0, 2 * Math.PI);
+  context.stroke();
+  context.beginPath();
+  context.arc(
+    circCenter.x,
+    circCenter.y,
+    Math.cos(pressureAngle) * Math.abs(radius),
+    0,
+    2 * Math.PI,
+  );
+  context.stroke();
+};
+
+export const drawLine = (context: CanvasRenderingContext2D, line: Line) => {
+  context.beginPath();
+  let v0 = line.v0;
+  let v1 = line.v1;
+  let dir0 = scale(sub(v1, v0), 100);
+  let dir1 = scale(sub(v0, v1), 100);
+  v0 = add(v0, dir0);
+  v1 = add(v1, dir1);
+  context.moveTo(v0.x, v0.y);
+  context.moveTo(v1.x, v1.y);
   context.stroke();
 };

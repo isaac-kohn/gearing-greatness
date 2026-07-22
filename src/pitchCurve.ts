@@ -32,6 +32,8 @@ export interface PitchCurve {
   // distance travelled along the curve at each sample for a linear sample in polar's param with #fidelity points
   cumulativeLengths: number[];
   totalLength: number;
+  // average magnitude of the polar vector loop that defines the pitch curve, used to guage size
+  averageRadius: number;
   // the number of veritces to be used in fidelicDiscreteLoop
   fidelity: number;
   // the number of vertices to be used in the renderedDiscreteLoop rendering geometry
@@ -59,12 +61,18 @@ export const createPitchCurve = (
     polarParamaterization,
     fidelity,
   );
+  let radiusSum = 0;
+  fidelicPolarVectors.forEach((polar) => {
+    radiusSum += polar.mag;
+  });
+  const averageRadius = radiusSum / fidelity;
   return {
     polarParamaterization,
     renderedDiscreteLoop: polygonalLoop,
     fidelicDiscreteLoop,
     cumulativeLengths,
     totalLength,
+    averageRadius,
     thetaMap: [],
     fidelity,
     renderFidelity,
@@ -155,6 +163,11 @@ export const createConjugatePitchCurve = (
     polarParamB,
     fidelity,
   );
+  let radiusSum = 0;
+  fidelicDiscreteLoop.polarVectors.forEach((polar) => {
+    radiusSum += polar.mag;
+  });
+  const averageRadius = radiusSum / fidelity;
   const pitchCurveB: PitchCurve = {
     polarParamaterization: polarParamB,
     renderedDiscreteLoop: polygonalLoop,
@@ -162,6 +175,7 @@ export const createConjugatePitchCurve = (
     thetaMap: thetaMapB,
     cumulativeLengths,
     totalLength,
+    averageRadius,
     fidelity: pitchCurveA.fidelity,
     renderFidelity: pitchCurveA.renderFidelity,
     matedCurves: [pitchCurveA],
@@ -173,6 +187,7 @@ export const createConjugatePitchCurve = (
 export const setCurveAngle = (pitchCurve: PitchCurve, angle: number): void => {
   angle = normalizeAngle(angle);
   pitchCurve.renderedDiscreteLoop.rotation = angle;
+  pitchCurve.fidelicDiscreteLoop.rotation = angle;
   // search thetaMap for the an index approximation to the given angle
   const baseIndex = arrayBinarySearch(pitchCurve.thetaMap, (sampleAngle) => {
     sampleAngle = normalizeAngle(sampleAngle);
