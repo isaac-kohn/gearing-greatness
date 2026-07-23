@@ -1,14 +1,10 @@
 import {
   discretePolarArrayToPolarParameterization,
   discretizePolarParamaterization,
+  tangentAtIndexOfVertexArray,
 } from "./calc";
 import type { PitchCurve } from "./pitchCurve";
-import {
-  createPolygonalLoop,
-  curvatureAtIndex,
-  tangentAtIndex,
-  type PolygonalLoop,
-} from "./polygonalLoop";
+import { createPolygonalLoop, type PolygonalLoop } from "./polygonalLoop";
 import {
   add,
   dot,
@@ -41,7 +37,7 @@ export const createBaseCurve = (
   const curvatureSignMap: (-1 | 1 | 0)[] = [];
   const zeroCurvatureAtRadiusThreshold = 2 * pitchCurve.averageRadius;
   const baseCurveVertices: Vector2d[] = pitchVertices.map((vertex, i) => {
-    const curvature = curvatureAtIndex(pitchVertices, i);
+    const curvature = pitchCurve.fidelicDiscreteLoop.curvatureAtIndex(i);
     const curvatureSign =
       1 / Math.abs(curvature) > zeroCurvatureAtRadiusThreshold
         ? 0
@@ -51,7 +47,7 @@ export const createBaseCurve = (
             ? -1
             : 0;
     curvatureSignMap.push(curvatureSign);
-    const tang = tangentAtIndex(pitchVertices, i);
+    const tang = tangentAtIndexOfVertexArray(pitchVertices, i);
     const pitchRadius = curvature === 0 ? NaN : 1 / curvature;
     const offsetMag = pitchRadius * Math.sin(pressureAngle);
     const offsetDir = normalizeAngle(getAngle(tang)) + pressureAngle;
@@ -64,7 +60,7 @@ export const createBaseCurve = (
   // if abs(alignment) < unsureThreshold, we count it as a 0
   const unsureThreshold = 0.2;
   for (let i = 0; i < pitchVertices.length; i++) {
-    const curveDirection = tangentAtIndex(baseCurveVertices, i);
+    const curveDirection = tangentAtIndexOfVertexArray(baseCurveVertices, i);
     const stringDirection = sub(baseCurveVertices[i], pitchVertices[i]);
     const alignment = dot(
       normalizeVector(curveDirection),

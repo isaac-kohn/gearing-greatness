@@ -101,7 +101,7 @@ function draw(timeMs: number) {
     context,
     gearA.pitchCurve.fidelicDiscreteLoop,
     timeSeconds * 60 * 0.2,
-    (30 * Math.PI) / 180,
+    -(30 * Math.PI) / 180,
   );
 }
 draw(0);

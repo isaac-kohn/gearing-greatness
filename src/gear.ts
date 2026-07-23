@@ -2,6 +2,7 @@ import { createBaseCurve, type BaseCurve } from "./baseCurve";
 import {
   discretePolarArrayToPolarParameterization,
   discretizePolarParamaterization,
+  tangentAtIndexOfVertexArray,
   type PolarParamaterization,
 } from "./calc";
 import {
@@ -10,12 +11,7 @@ import {
   findIndexOfCumulativeLength,
   type PitchCurve,
 } from "./pitchCurve";
-import {
-  createPolygonalLoop,
-  curvatureAtIndex,
-  tangentAtIndex,
-  type PolygonalLoop,
-} from "./polygonalLoop";
+import { createPolygonalLoop, type PolygonalLoop } from "./polygonalLoop";
 import {
   add,
   distance,
@@ -38,6 +34,7 @@ import {
 export interface ToothRoot {
   index: number;
   vertex: Vector2d;
+  normalLine: Line;
 }
 
 export interface ToothFlank {
@@ -54,11 +51,13 @@ export interface Gear {
   addendumFn: PolarParamaterization;
   // the t such that pitchCurve.fn(t) gives the point at which each tooth intersects the pitch curve
   toothRoots: { index: number; vertex: Vector2d }[];
-  toothFlanks: ToothFlank[];
+  fwdFlanks: ToothFlank[];
+  bwdFlanks: ToothFlank[];
   // like for pitch curve, the polygonal loops are used for rendering, while the paramaterizations are used for high fidelity geometry computation
   polyAddendum: PolygonalLoop;
   polyDedendum: PolygonalLoop;
-  baseCurve: BaseCurve;
+  fwdBaseCurve: BaseCurve;
+  bwdBaseCurve: BaseCurve;
   fidelity: number;
   renderFidelity: number;
   renderMode: "default" | "skeleton";
@@ -73,8 +72,10 @@ const generateDedendumFn = (pitchCurve: PitchCurve): PolygonalLoop => {
   const fidelity = pitchCurve.fidelity;
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
   const vertexArray = pitchVertices.map((vertex, i) => {
-    const curvature = Math.abs(curvatureAtIndex(pitchVertices, i));
-    const tang = tangentAtIndex(pitchVertices, i);
+    const curvature = Math.abs(
+      pitchCurve.fidelicDiscreteLoop.curvatureAtIndex(i),
+    );
+    const tang = tangentAtIndexOfVertexArray(pitchVertices, i);
     const pitchRadius = curvature === 0 ? Infinity : 1 / curvature;
     const offsetMag = Math.min(pitchRadius, 1000) * Math.sin(pressureAngle);
     const offsetDir = getAngle(tang) + pressureAngle;
@@ -112,60 +113,64 @@ const generateAdendumFn = (
 };
 
 const generateToothRoots = (
-  numTeeth,
-  totalLength,
-  cumulativeLengths,
-  polarParamaterization: PolarParamaterization,
-): { index: number; vertex: Vector2d }[] => {
+  numTeeth: number,
+  fidelicDiscreteLoop: PolygonalLoop,
+): ToothRoot[] => {
   const numToothRoots = numTeeth * 2;
-  const fidelity = cumulativeLengths.length;
+  const cumulativeLengths = fidelicDiscreteLoop.cumulativeLengths;
+  const totalLength = fidelicDiscreteLoop.totalLength;
   const toothSpacing = totalLength / numToothRoots;
-  const { fn, domainMax, domainMin } = polarParamaterization;
-  const toothRoots: { index: number; vertex: Vector2d }[] = [];
+  const toothRoots: ToothRoot[] = [];
   for (let i = 0; i < numTeeth; i++) {
     const targetLength = i * toothSpacing;
-    const targetIndex = findIndexOfCumulativeLength(
-      cumulativeLengths,
-      totalLength,
-      targetLength,
-    );
-    const sampleParam =
-      domainMin + (targetIndex * (domainMax - domainMin)) / fidelity;
-    const toothVertex = polarToVertex(fn(sampleParam));
-    toothRoots.push({ index: targetIndex, vertex: toothVertex });
+    const targetIndex =
+      fidelicDiscreteLoop.findIndexOfCumulativeLength(targetLength);
+    const toothRootVertex = fidelicDiscreteLoop.vertices[targetIndex];
+    const tangentVector: Vector2d =
+      fidelicDiscreteLoop.tangentAtIndex(targetIndex);
+    const normalLine: Line = { v0: toothRootVertex, v1: tangentVector };
+    toothRoots.push({
+      index: targetIndex,
+      vertex: toothRootVertex,
+      normalLine,
+    });
   }
   return toothRoots;
 };
 
-const generateForwardFlanks = (
+const generateFlankSegments = (
   toothRoots: ToothRoot[],
   pitchCurve: PitchCurve,
-  fwdBaseCurve: BaseCurve,
-): ToothFlank[] => {
-  const fwdRoots = toothRoots.filter((_, i) => i % 2 == 0);
-  let fwdRootIndices = fwdRoots.map((root) => root.index).reverse();
+  baseCurve: BaseCurve,
+  turningDirection: 1 | -1,
+): Vector2d[][] => {
+  let rootIndices = toothRoots.map((root) => root.index);
+  if (turningDirection === 1) rootIndices = rootIndices.reverse();
   const pitchPolars = pitchCurve.fidelicDiscreteLoop.polarVectors;
   const fidelity = pitchPolars.length;
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
-  const fwdBaseVertices = fwdBaseCurve.fidelicDiscreteLoop.vertices;
-  const fwdFlankTips: Vector2d[][] = [];
-  let index = fwdRootIndices.at(-1);
+  const baseVertices = baseCurve.fidelicDiscreteLoop.vertices;
+  const flankSegments: Vector2d[][] = [];
+  let index = rootIndices.at(-1);
   let baseStartCircum: number;
-  const baseLengths = [...fwdBaseCurve.fidelicSignedCumulativeLengths];
+  const baseLengths = [...baseCurve.fidelicSignedCumulativeLengths];
   let tangentStartLength: number;
   let unwrapLength: number;
-  let prevVertex: Vector2d;
-  // fwd flank tips
+  let prevVertex: Vector2d; // = { ...pitchVertices[rootIndices.at(-1)] };
+  if (turningDirection === -1)
+    baseLengths[0] = baseCurve.fidelicSignedTotalLength;
   for (let n = 0; n < fidelity; n++) {
-    const baseVertex = fwdBaseVertices[index];
+    index = ((index % fidelity) + fidelity) % fidelity;
+    const baseVertex = baseVertices[index];
     const pitchVertex = pitchVertices[index];
-    const curvatureSign = fwdBaseCurve.curvatureSignMap[index];
-    if (index === fwdRootIndices.at(-1)) {
-      fwdRootIndices.pop();
-      fwdFlankTips.push([]);
+    const curvatureSign = baseCurve.curvatureSignMap[index];
+    if (index === rootIndices.at(-1)) {
+      rootIndices.pop();
+      flankSegments.push([]);
       baseStartCircum = baseLengths[index];
       tangentStartLength = distance(pitchVertex, baseVertex);
-    } else if (curvatureSign === 0) {
+    } else if (curvatureSign === 0 || rootIndices.length === 0) {
+      // the root indices length === 0 condition i have no idea why but it fixes things lol
       baseStartCircum = baseLengths[index];
       tangentStartLength = distance(prevVertex, baseVertex);
     }
@@ -173,42 +178,52 @@ const generateForwardFlanks = (
     unwrapLength = tangentStartLength + (baseLengths[index] - baseStartCircum);
     const unwrappedTangentVector = setMagnitude(tangentVector, unwrapLength);
     const vertex = add(baseVertex, unwrappedTangentVector);
-    fwdFlankTips[fwdFlankTips.length - 1].push(vertex);
+    flankSegments[flankSegments.length - 1].push(vertex);
     prevVertex = vertex;
-    index++;
-    index = ((index % fidelity) + fidelity) % fidelity;
+    index += turningDirection;
   }
-  // fwd flank bases
-  fwdRootIndices = fwdRoots.map((root) => root.index);
-  index = fwdRootIndices.at(-1);
-  const fwdFlankBases: Vector2d[][] = [];
-  baseLengths[0] = fwdBaseCurve.fidelicSignedTotalLength;
-  for (let n = 0; n < fidelity; n++) {
-    const baseVertex = fwdBaseVertices[index];
-    const pitchVertex = pitchVertices[index];
-    const curvatureSign = fwdBaseCurve.curvatureSignMap[index];
-    if (index === fwdRootIndices.at(-1)) {
-      fwdRootIndices.pop();
-      fwdFlankBases.push([]);
-      baseStartCircum = baseLengths[index];
-      tangentStartLength = distance(pitchVertex, baseVertex);
-    } else if (curvatureSign === 0) {
-      baseStartCircum = baseLengths[index];
-      tangentStartLength = distance(prevVertex, baseVertex);
-    }
-    const tangentVector = sub(pitchVertex, baseVertex);
-    unwrapLength = tangentStartLength + (baseLengths[index] - baseStartCircum);
-    const unwrappedTangentVector = setMagnitude(tangentVector, unwrapLength);
-    const vertex = add(baseVertex, unwrappedTangentVector);
-    fwdFlankBases[fwdFlankBases.length - 1].push(vertex);
-    prevVertex = vertex;
-    index--;
-    index = ((index % fidelity) + fidelity) % fidelity;
-  }
+  return flankSegments;
+};
+
+const generateToothFlanks = (
+  toothRoots: ToothRoot[],
+  pitchCurve: PitchCurve,
+  fwdBaseCurve: BaseCurve,
+  bwdBaseCurve: BaseCurve,
+): { fwdFlanks: ToothFlank[]; bwdFlanks: ToothFlank[] } => {
+  const fwdRoots = toothRoots.filter((_, i) => i % 2 == 0);
+  const bwdRoots = toothRoots.filter((_, i) => i % 2 == 1);
+  const fwdFlankTips = generateFlankSegments(
+    fwdRoots,
+    pitchCurve,
+    fwdBaseCurve,
+    1,
+  );
+  const fwdFlankBases = generateFlankSegments(
+    fwdRoots,
+    pitchCurve,
+    fwdBaseCurve,
+    -1,
+  );
+  const bwdFlankTips = generateFlankSegments(
+    bwdRoots,
+    pitchCurve,
+    bwdBaseCurve,
+    1,
+  );
+  const bwdFlankBases = generateFlankSegments(
+    bwdRoots,
+    pitchCurve,
+    bwdBaseCurve,
+    -1,
+  );
   const fwdFlanks = fwdRoots.map((root, index): ToothFlank => {
     return { tip: fwdFlankTips[index], base: fwdFlankBases[index], root };
   });
-  return fwdFlanks;
+  const bwdFlanks = bwdRoots.map((root, index): ToothFlank => {
+    return { tip: bwdFlankTips[index], base: bwdFlankBases[index], root };
+  });
+  return { fwdFlanks, bwdFlanks };
 };
 
 export const createGear = (
@@ -238,21 +253,37 @@ export const createGear = (
     center,
     discretizePolarParamaterization(dedendumFn, renderFidelity),
   ); //generateDedendumFn(pitchCurve);
-
+  /*
   const toothRoots = generateToothRoots(
     numTeeth,
     pitchCurve.totalLength,
     pitchCurve.cumulativeLengths,
     pitchCurve.polarParamaterization,
+  );*/
+  const toothRoots = generateToothRoots(
+    numTeeth,
+    pitchCurve.fidelicDiscreteLoop,
   );
-  const baseCurve = createBaseCurve(
+  const fwdBaseCurve = createBaseCurve(
     pitchCurve,
     (pressureAngle * Math.PI) / 180,
   );
-  const toothFlanks = generateForwardFlanks(toothRoots, pitchCurve, baseCurve);
+  const bwdBaseCurve = createBaseCurve(
+    pitchCurve,
+    -(pressureAngle * Math.PI) / 180,
+  );
+  //const toothFlanks = generateForwardFlanks(toothRoots, pitchCurve, baseCurve);
+  const toothFlanks = generateToothFlanks(
+    toothRoots,
+    pitchCurve,
+    fwdBaseCurve,
+    bwdBaseCurve,
+  );
+  const { fwdFlanks, bwdFlanks } = toothFlanks;
   return {
     pitchCurve,
-    baseCurve,
+    fwdBaseCurve,
+    bwdBaseCurve,
     numTeeth,
     addendum,
     dedendum,
@@ -263,7 +294,8 @@ export const createGear = (
     renderFidelity,
     renderMode: "default",
     toothRoots,
-    toothFlanks,
+    fwdFlanks,
+    bwdFlanks,
     getDirection: () => direction,
     setDirection: (angle: number) => {
       direction = angle;
