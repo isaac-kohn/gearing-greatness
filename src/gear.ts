@@ -50,7 +50,7 @@ export interface Gear {
   dedendum: number;
   addendumFn: PolarParamaterization;
   // the t such that pitchCurve.fn(t) gives the point at which each tooth intersects the pitch curve
-  toothRoots: { index: number; vertex: Vector2d }[];
+  toothRoots: ToothRoot[];
   fwdFlanks: ToothFlank[];
   bwdFlanks: ToothFlank[];
   // like for pitch curve, the polygonal loops are used for rendering, while the paramaterizations are used for high fidelity geometry computation
@@ -117,7 +117,6 @@ const generateToothRoots = (
   fidelicDiscreteLoop: PolygonalLoop,
 ): ToothRoot[] => {
   const numToothRoots = numTeeth * 2;
-  const cumulativeLengths = fidelicDiscreteLoop.cumulativeLengths;
   const totalLength = fidelicDiscreteLoop.totalLength;
   const toothSpacing = totalLength / numToothRoots;
   const toothRoots: ToothRoot[] = [];
@@ -128,7 +127,11 @@ const generateToothRoots = (
     const toothRootVertex = fidelicDiscreteLoop.vertices[targetIndex];
     const tangentVector: Vector2d =
       fidelicDiscreteLoop.tangentAtIndex(targetIndex);
-    const normalLine: Line = { v0: toothRootVertex, v1: tangentVector };
+    const normalVector = perp(tangentVector);
+    const normalLine: Line = {
+      v0: toothRootVertex,
+      v1: add(toothRootVertex, normalVector),
+    };
     toothRoots.push({
       index: targetIndex,
       vertex: toothRootVertex,

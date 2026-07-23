@@ -3,6 +3,7 @@ import type { PitchCurve } from "./pitchCurve";
 import { type PolygonalLoop } from "./polygonalLoop";
 import {
   add,
+  distance,
   magnitude,
   normalizeVector,
   rotate,
@@ -91,10 +92,21 @@ const drawToothRoots = (context: CanvasRenderingContext2D, gear: Gear) => {
       context,
       add(gear.pitchCurve.renderedDiscreteLoop.center, toothRoot.vertex),
     );
+    drawLine(context, toothRoot.normalLine, {
+      extendLength: 20,
+      color: "orange",
+    });
+    console.log(toothRoot.normalLine);
   }
 };
 
-const drawToothFlanks = (context: CanvasRenderingContext2D, gear: Gear) => {
+const drawToothFlanks = (
+  context: CanvasRenderingContext2D,
+  gear: Gear,
+  style?: { color?: string | CanvasGradient | CanvasPattern },
+) => {
+  const color = style?.color || "blue";
+  context.strokeStyle = color;
   for (const toothFlank of gear.fwdFlanks) {
     drawPolygonalChain(
       context,
@@ -179,7 +191,7 @@ export const drawCircleOfBestFitAtLoopIndex = (
   let circCenter = add(v0, scale(norm, radius));
   circCenter = add(center, rotate(circCenter, loop.rotation));
   context.lineWidth = 1;
-  //context.strokeStyle = "#000";
+  context.strokeStyle = "blue";
   context.beginPath();
   context.arc(circCenter.x, circCenter.y, Math.abs(radius), 0, 2 * Math.PI);
   context.stroke();
@@ -194,15 +206,30 @@ export const drawCircleOfBestFitAtLoopIndex = (
   context.stroke();
 };
 
-export const drawLine = (context: CanvasRenderingContext2D, line: Line) => {
+export const drawLine = (
+  context: CanvasRenderingContext2D,
+  line: Line,
+  style?: {
+    extendLength?: number;
+    color?: string | CanvasGradient | CanvasPattern;
+    lineWidth?: number;
+  },
+) => {
+  const color = style?.color || "#000";
+  const extendLength = style?.extendLength || 0;
+  const lineWidth = style?.lineWidth || 0.5;
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth;
   context.beginPath();
   let v0 = line.v0;
   let v1 = line.v1;
-  let dir0 = scale(sub(v1, v0), 100);
-  let dir1 = scale(sub(v0, v1), 100);
+  const lineLength = distance(v0, v1);
+  const scaleFactor = (lineLength + extendLength) / lineLength;
+  let dir0 = scale(sub(v1, v0), scaleFactor);
+  let dir1 = scale(sub(v0, v1), scaleFactor);
   v0 = add(v0, dir0);
   v1 = add(v1, dir1);
   context.moveTo(v0.x, v0.y);
-  context.moveTo(v1.x, v1.y);
+  context.lineTo(v1.x, v1.y);
   context.stroke();
 };
