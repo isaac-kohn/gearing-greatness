@@ -133,3 +133,11 @@ export const lineIntersection = (lineA: Line, lineB: Line): Vector2d | null => {
   const u = cross(directionA, sub(lineA.v0, lineB.v0)) / perpendicularity;
   return add(lineB.v0, scale(directionB, u));
 };
+
+// which side of the line is the vertex on
+export const vertexLineHandedness = (line: Line, vertex: Vector2d): number => {
+  const { v0, v1 } = line;
+  const d0 = sub(v1, v0);
+  const d1 = sub(vertex, v0);
+  return cross(d0, d1);
+};

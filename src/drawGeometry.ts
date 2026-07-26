@@ -96,7 +96,6 @@ const drawToothRoots = (context: CanvasRenderingContext2D, gear: Gear) => {
       extendLength: 20,
       color: "orange",
     });
-    console.log(toothRoot.normalLine);
   }
 };
 

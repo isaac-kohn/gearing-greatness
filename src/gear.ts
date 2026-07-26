@@ -14,6 +14,7 @@ import {
 import { createPolygonalLoop, type PolygonalLoop } from "./polygonalLoop";
 import {
   add,
+  cross,
   distance,
   getAngle,
   lineIntersection,
@@ -25,6 +26,7 @@ import {
   scale,
   setMagnitude,
   sub,
+  vertexLineHandedness,
   vertexToPolar,
   type Line,
   type PolarVector,
@@ -146,22 +148,86 @@ const generateFlankSegments = (
   pitchCurve: PitchCurve,
   baseCurve: BaseCurve,
   turningDirection: 1 | -1,
+  flankDirection: 1 | -1,
 ): Vector2d[][] => {
-  let rootIndices = toothRoots.map((root) => root.index);
-  if (turningDirection === 1) rootIndices = rootIndices.reverse();
+  const numRoots = toothRoots.length;
+  const numRootPairs = toothRoots.length / 2;
+  const rootRootIndices = Array.from({ length: numRootPairs }, (_, i) => i * 2);
+  if (flankDirection === 1)
+    rootRootIndices.forEach((_, i) => (rootRootIndices[i] += 1));
   const pitchPolars = pitchCurve.fidelicDiscreteLoop.polarVectors;
   const fidelity = pitchPolars.length;
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
   const baseVertices = baseCurve.fidelicDiscreteLoop.vertices;
   const flankSegments: Vector2d[][] = [];
-  let index = rootIndices.at(-1);
   let baseStartCircum: number;
   const baseLengths = [...baseCurve.fidelicSignedCumulativeLengths];
   let tangentStartLength: number;
   let unwrapLength: number;
-  let prevVertex: Vector2d; // = { ...pitchVertices[rootIndices.at(-1)] };
   if (turningDirection === -1)
     baseLengths[0] = baseCurve.fidelicSignedTotalLength;
+  for (const rootRootIndex of rootRootIndices) {
+    const toothRoot = toothRoots[rootRootIndex];
+    // terrible naming lol, but i needed smth to differentiate the index of the root in the toothroots array vs in the fidelicloop array
+    const rootFidelicIndex = toothRoot.index;
+    let prevVertex: Vector2d = { ...pitchVertices[rootFidelicIndex] };
+    flankSegments.push([]);
+    let whileLoopCount = 0;
+    const whileLoopLimit = 10 * (fidelity / numRoots);
+    let fidelicLoopIndex = rootFidelicIndex;
+    baseStartCircum = baseLengths[rootFidelicIndex];
+    tangentStartLength = distance(
+      pitchVertices[rootFidelicIndex],
+      baseVertices[rootFidelicIndex],
+    );
+    while (true) {
+      const unNormalizedIndex = fidelicLoopIndex;
+      fidelicLoopIndex = ((fidelicLoopIndex % fidelity) + fidelity) % fidelity;
+      const baseVertex = baseVertices[fidelicLoopIndex];
+      const pitchVertex = pitchVertices[fidelicLoopIndex];
+      const curvatureSign = baseCurve.curvatureSignMap[fidelicLoopIndex];
+      // calculate next vertex of tooth flank
+      if (curvatureSign === 0) {
+        baseStartCircum = baseLengths[fidelicLoopIndex];
+        tangentStartLength = distance(prevVertex, baseVertex);
+      }
+      if (unNormalizedIndex !== fidelicLoopIndex)
+        tangentStartLength += turningDirection * length;
+      const tangentVector = sub(pitchVertex, baseVertex);
+      unwrapLength =
+        tangentStartLength + (baseLengths[fidelicLoopIndex] - baseStartCircum);
+      const unwrappedTangentVector = setMagnitude(tangentVector, unwrapLength);
+      const vertex = add(baseVertex, unwrappedTangentVector);
+      // stackoverflow break condition
+      if (whileLoopCount >= whileLoopLimit) {
+        console.warn(
+          "check generateFlankSegments and find the bug. This while loop should not be running this long",
+        );
+        break;
+      }
+      whileLoopCount++;
+      // undercutting break condition
+      if (unwrapLength < 0) {
+        break;
+      }
+      // boundary line intersection break condition
+      const nextRootRootIndex =
+        (((rootRootIndex + turningDirection) % numRoots) + numRoots) % numRoots;
+      const nextRoot = toothRoots[nextRootRootIndex];
+      const thisRoot = toothRoots[rootRootIndex];
+      const nextLineCrossed =
+        vertexLineHandedness(nextRoot.normalLine, vertex) * -turningDirection >
+        0;
+      const thisLineCrossed =
+        vertexLineHandedness(thisRoot.normalLine, vertex) * turningDirection >
+        0;
+      if (whileLoopCount > 1 && (thisLineCrossed || nextLineCrossed)) break;
+      // all breaks passed, vertex can be added.
+      flankSegments[flankSegments.length - 1].push(vertex);
+      prevVertex = vertex;
+      fidelicLoopIndex += turningDirection;
+    }
+  } /*
   for (let n = 0; n < fidelity; n++) {
     index = ((index % fidelity) + fidelity) % fidelity;
     const baseVertex = baseVertices[index];
@@ -184,7 +250,7 @@ const generateFlankSegments = (
     flankSegments[flankSegments.length - 1].push(vertex);
     prevVertex = vertex;
     index += turningDirection;
-  }
+  }*/
   return flankSegments;
 };
 
@@ -193,40 +259,45 @@ const generateToothFlanks = (
   pitchCurve: PitchCurve,
   fwdBaseCurve: BaseCurve,
   bwdBaseCurve: BaseCurve,
-): { fwdFlanks: ToothFlank[]; bwdFlanks: ToothFlank[] } => {
-  const fwdRoots = toothRoots.filter((_, i) => i % 2 == 0);
-  const bwdRoots = toothRoots.filter((_, i) => i % 2 == 1);
+): { fwdFlank: ToothFlank; bwdFlank: ToothFlank }[] => {
+  //const fwdRoots = toothRoots.filter((_, i) => i % 2 == 0);
+  //const bwdRoots = toothRoots.filter((_, i) => i % 2 == 1);
   const fwdFlankTips = generateFlankSegments(
-    fwdRoots,
+    toothRoots,
     pitchCurve,
     fwdBaseCurve,
+    1,
     1,
   );
   const fwdFlankBases = generateFlankSegments(
-    fwdRoots,
+    toothRoots,
     pitchCurve,
     fwdBaseCurve,
     -1,
+    1,
   );
   const bwdFlankTips = generateFlankSegments(
-    bwdRoots,
+    toothRoots,
     pitchCurve,
     bwdBaseCurve,
     1,
+    -1,
   );
   const bwdFlankBases = generateFlankSegments(
-    bwdRoots,
+    toothRoots,
     pitchCurve,
     bwdBaseCurve,
     -1,
+    -1,
   );
-  const fwdFlanks = fwdRoots.map((root, index): ToothFlank => {
-    return { tip: fwdFlankTips[index], base: fwdFlankBases[index], root };
+  const toothFlankPairs = toothRoots.map((root, index) => {
+    index = Math.floor(index / 2);
+    return {
+      fwdFlank: { tip: fwdFlankTips[index], base: fwdFlankBases[index], root },
+      bwdFlank: { tip: bwdFlankTips[index], base: bwdFlankBases[index], root },
+    };
   });
-  const bwdFlanks = bwdRoots.map((root, index): ToothFlank => {
-    return { tip: bwdFlankTips[index], base: bwdFlankBases[index], root };
-  });
-  return { fwdFlanks, bwdFlanks };
+  return toothFlankPairs;
 };
 
 export const createGear = (
@@ -276,13 +347,14 @@ export const createGear = (
     -(pressureAngle * Math.PI) / 180,
   );
   //const toothFlanks = generateForwardFlanks(toothRoots, pitchCurve, baseCurve);
-  const toothFlanks = generateToothFlanks(
+  const toothFlankPairs = generateToothFlanks(
     toothRoots,
     pitchCurve,
     fwdBaseCurve,
     bwdBaseCurve,
   );
-  const { fwdFlanks, bwdFlanks } = toothFlanks;
+  const fwdFlanks = toothFlankPairs.map((pair) => pair.fwdFlank);
+  const bwdFlanks = toothFlankPairs.map((pair) => pair.bwdFlank);
   return {
     pitchCurve,
     fwdBaseCurve,
