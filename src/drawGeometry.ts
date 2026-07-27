@@ -145,6 +145,7 @@ export const drawGear = (
   drawPitchCurve(context, gear.pitchCurve);
   context.lineWidth = 0.5;
   drawPolygonalLoop(context, gear.bwdBaseCurve.renderedDiscreteLoop);
+  drawPolygonalLoop(context, gear.fwdBaseCurve.renderedDiscreteLoop);
   context.lineWidth = 1;
   context.strokeStyle = "#0ff";
   /*

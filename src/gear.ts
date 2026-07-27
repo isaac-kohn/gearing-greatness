@@ -8,21 +8,16 @@ import {
 import {
   createConjugatePitchCurve,
   createPitchCurve,
-  findIndexOfCumulativeLength,
   type PitchCurve,
 } from "./pitchCurve";
 import { createPolygonalLoop, type PolygonalLoop } from "./polygonalLoop";
 import {
   add,
-  cross,
   distance,
   getAngle,
-  lineIntersection,
-  magnitude,
   normalizeVector,
   perp,
   polarToVertex,
-  rotate,
   scale,
   setMagnitude,
   sub,
@@ -160,12 +155,19 @@ const generateFlankSegments = (
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
   const baseVertices = baseCurve.fidelicDiscreteLoop.vertices;
   const flankSegments: Vector2d[][] = [];
-  let baseStartCircum: number;
-  const baseLengths = [...baseCurve.fidelicSignedCumulativeLengths];
-  let tangentStartLength: number;
-  let unwrapLength: number;
-  if (turningDirection === -1)
-    baseLengths[0] = baseCurve.fidelicSignedTotalLength;
+  const totalLength = baseCurve.fidelicSignedTotalLength;
+  const overflowLengths = baseCurve.fidelicSignedCumulativeLengths.map(
+    (len) => len + totalLength,
+  );
+  const underflowLengths = baseCurve.fidelicSignedCumulativeLengths.map(
+    (len) => len - totalLength,
+  );
+  const baseLengths = [
+    ...underflowLengths,
+    ...baseCurve.fidelicSignedCumulativeLengths,
+    ...overflowLengths,
+  ];
+  //if (turningDirection === -1) baseLengths[0] = totalLength;
   for (const rootRootIndex of rootRootIndices) {
     const toothRoot = toothRoots[rootRootIndex];
     // terrible naming lol, but i needed smth to differentiate the index of the root in the toothroots array vs in the fidelicloop array
@@ -174,28 +176,27 @@ const generateFlankSegments = (
     flankSegments.push([]);
     let whileLoopCount = 0;
     const whileLoopLimit = 10 * (fidelity / numRoots);
-    let fidelicLoopIndex = rootFidelicIndex;
-    baseStartCircum = baseLengths[rootFidelicIndex];
-    tangentStartLength = distance(
+    let unNormalizedIndex = rootFidelicIndex + fidelity;
+    let baseStartCircum = baseLengths[unNormalizedIndex];
+    let tangentStartLength = distance(
       pitchVertices[rootFidelicIndex],
       baseVertices[rootFidelicIndex],
     );
     while (true) {
-      const unNormalizedIndex = fidelicLoopIndex;
-      fidelicLoopIndex = ((fidelicLoopIndex % fidelity) + fidelity) % fidelity;
+      const fidelicLoopIndex =
+        ((unNormalizedIndex % fidelity) + fidelity) % fidelity;
+      const baseLengthIndex = unNormalizedIndex;
       const baseVertex = baseVertices[fidelicLoopIndex];
       const pitchVertex = pitchVertices[fidelicLoopIndex];
       const curvatureSign = baseCurve.curvatureSignMap[fidelicLoopIndex];
       // calculate next vertex of tooth flank
       if (curvatureSign === 0) {
-        baseStartCircum = baseLengths[fidelicLoopIndex];
+        baseStartCircum = baseLengths[baseLengthIndex];
         tangentStartLength = distance(prevVertex, baseVertex);
       }
-      if (unNormalizedIndex !== fidelicLoopIndex)
-        tangentStartLength += turningDirection * length;
       const tangentVector = sub(pitchVertex, baseVertex);
-      unwrapLength =
-        tangentStartLength + (baseLengths[fidelicLoopIndex] - baseStartCircum);
+      let unwrapLength =
+        tangentStartLength + (baseLengths[baseLengthIndex] - baseStartCircum);
       const unwrappedTangentVector = setMagnitude(tangentVector, unwrapLength);
       const vertex = add(baseVertex, unwrappedTangentVector);
       // stackoverflow break condition
@@ -225,32 +226,9 @@ const generateFlankSegments = (
       // all breaks passed, vertex can be added.
       flankSegments[flankSegments.length - 1].push(vertex);
       prevVertex = vertex;
-      fidelicLoopIndex += turningDirection;
+      unNormalizedIndex += turningDirection;
     }
-  } /*
-  for (let n = 0; n < fidelity; n++) {
-    index = ((index % fidelity) + fidelity) % fidelity;
-    const baseVertex = baseVertices[index];
-    const pitchVertex = pitchVertices[index];
-    const curvatureSign = baseCurve.curvatureSignMap[index];
-    if (index === rootIndices.at(-1)) {
-      rootIndices.pop();
-      flankSegments.push([]);
-      baseStartCircum = baseLengths[index];
-      tangentStartLength = distance(pitchVertex, baseVertex);
-    } else if (curvatureSign === 0 || rootIndices.length === 0) {
-      // the root indices length === 0 condition i have no idea why but it fixes things lol
-      baseStartCircum = baseLengths[index];
-      tangentStartLength = distance(prevVertex, baseVertex);
-    }
-    const tangentVector = sub(pitchVertex, baseVertex);
-    unwrapLength = tangentStartLength + (baseLengths[index] - baseStartCircum);
-    const unwrappedTangentVector = setMagnitude(tangentVector, unwrapLength);
-    const vertex = add(baseVertex, unwrappedTangentVector);
-    flankSegments[flankSegments.length - 1].push(vertex);
-    prevVertex = vertex;
-    index += turningDirection;
-  }*/
+  }
   return flankSegments;
 };
 
@@ -326,14 +304,7 @@ export const createGear = (
   const polyDedendum = createPolygonalLoop(
     center,
     discretizePolarParamaterization(dedendumFn, renderFidelity),
-  ); //generateDedendumFn(pitchCurve);
-  /*
-  const toothRoots = generateToothRoots(
-    numTeeth,
-    pitchCurve.totalLength,
-    pitchCurve.cumulativeLengths,
-    pitchCurve.polarParamaterization,
-  );*/
+  );
   const toothRoots = generateToothRoots(
     numTeeth,
     pitchCurve.fidelicDiscreteLoop,
@@ -346,7 +317,6 @@ export const createGear = (
     pitchCurve,
     -(pressureAngle * Math.PI) / 180,
   );
-  //const toothFlanks = generateForwardFlanks(toothRoots, pitchCurve, baseCurve);
   const toothFlankPairs = generateToothFlanks(
     toothRoots,
     pitchCurve,
