@@ -107,6 +107,7 @@ export const createBaseCurve = (
     polyPar,
     renderFidelity,
   );
+  console.log(renderedPolarVectors.length);
   const renderedDiscreteLoop = createPolygonalLoop(
     pitchCurve.renderedDiscreteLoop.center,
     renderedPolarVectors,

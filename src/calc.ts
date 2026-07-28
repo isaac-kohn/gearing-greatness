@@ -95,7 +95,7 @@ export const discretizePolarParamaterization = (
   const minDom = polarParamaterization.domainMin;
   const paramSamples = Array.from(
     { length: numSamples },
-    (_, k) => (k * (maxDom - minDom)) / numSamples,
+    (_, k) => minDom + (k * (maxDom - minDom)) / numSamples,
   );
   return paramSamples.map(polarParamaterization.fn);
 };

@@ -113,12 +113,16 @@ const generateToothRoots = (
   numTeeth: number,
   fidelicDiscreteLoop: PolygonalLoop,
 ): ToothRoot[] => {
-  const numToothRoots = numTeeth * 2;
+  const numToothRoots = numTeeth * 4;
+  console.log(numToothRoots);
   const totalLength = fidelicDiscreteLoop.totalLength;
   const toothSpacing = totalLength / numToothRoots;
   const toothRoots: ToothRoot[] = [];
-  for (let i = 0; i < numTeeth; i++) {
+  for (let i = 0; i < numToothRoots; i++) {
     const targetLength = i * toothSpacing;
+    console.log(totalLength);
+    console.log(fidelicDiscreteLoop.cumulativeLengths.at(500));
+    console.log(targetLength);
     const targetIndex =
       fidelicDiscreteLoop.findIndexOfCumulativeLength(targetLength);
     const toothRootVertex = fidelicDiscreteLoop.vertices[targetIndex];
@@ -238,8 +242,6 @@ const generateToothFlanks = (
   fwdBaseCurve: BaseCurve,
   bwdBaseCurve: BaseCurve,
 ): { fwdFlank: ToothFlank; bwdFlank: ToothFlank }[] => {
-  //const fwdRoots = toothRoots.filter((_, i) => i % 2 == 0);
-  //const bwdRoots = toothRoots.filter((_, i) => i % 2 == 1);
   const fwdFlankTips = generateFlankSegments(
     toothRoots,
     pitchCurve,
@@ -277,6 +279,12 @@ const generateToothFlanks = (
   });
   return toothFlankPairs;
 };
+
+const trimFlankSegments = (
+  pitchCurve: PitchCurve,
+  segmentA: Vector2d[],
+  segmentB: Vector2d[],
+) => {};
 
 export const createGear = (
   polarParamaterization: PolarParamaterization,

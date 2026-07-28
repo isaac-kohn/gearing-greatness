@@ -28,6 +28,7 @@ const cumulativeLengthsOfVertexPath = (
   vertices: Vector2d[],
 ): { cumulativeLengths; totalLength } => {
   let cumulativeLengths: number[] = [0];
+  console.log(vertices.length);
   for (let i = 0; i < vertices.length - 1; i++) {
     const segmentLength = distance(vertices[i], vertices[i + 1]);
     const lengthSoFar = cumulativeLengths[i];
@@ -66,7 +67,7 @@ const findIndexOfCumulativeLength = (
   targetLength: number,
 ): number => {
   const fidelity = cumulativeLengths.length;
-  targetLength = ((targetLength % totalLength) + targetLength) % totalLength;
+  targetLength = ((targetLength % totalLength) + totalLength) % totalLength;
   if (targetLength > cumulativeLengths[fidelity - 1]) {
     const baseIndex = fidelity;
     return baseIndex;

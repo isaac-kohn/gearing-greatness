@@ -63,13 +63,13 @@ const pitchCurveB = createConjugatePitchCurve(pitchCurveA);
 const gearA = createGear(
   {
     fn: (u) => {
-      return { mag: 100 - 20 * Math.cos(3 * u), angle: u };
+      return { mag: 100 - 0 * Math.cos(3 * u), angle: u };
     },
     domainMax: 2 * Math.PI,
     domainMin: 0,
   },
   30,
-  70,
+  10,
   15,
   17,
 );
