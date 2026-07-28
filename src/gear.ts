@@ -109,20 +109,18 @@ const generateAdendumFn = (
   return polarParamaterization;
 };
 
+const ROOTSPERTOOTH = 4;
+
 const generateToothRoots = (
   numTeeth: number,
   fidelicDiscreteLoop: PolygonalLoop,
 ): ToothRoot[] => {
-  const numToothRoots = numTeeth * 4;
-  console.log(numToothRoots);
+  const numToothRoots = numTeeth * ROOTSPERTOOTH;
   const totalLength = fidelicDiscreteLoop.totalLength;
   const toothSpacing = totalLength / numToothRoots;
   const toothRoots: ToothRoot[] = [];
   for (let i = 0; i < numToothRoots; i++) {
     const targetLength = i * toothSpacing;
-    console.log(totalLength);
-    console.log(fidelicDiscreteLoop.cumulativeLengths.at(500));
-    console.log(targetLength);
     const targetIndex =
       fidelicDiscreteLoop.findIndexOfCumulativeLength(targetLength);
     const toothRootVertex = fidelicDiscreteLoop.vertices[targetIndex];
@@ -150,10 +148,13 @@ const generateFlankSegments = (
   flankDirection: 1 | -1,
 ): Vector2d[][] => {
   const numRoots = toothRoots.length;
-  const numRootPairs = toothRoots.length / 2;
-  const rootRootIndices = Array.from({ length: numRootPairs }, (_, i) => i * 2);
+  const numTeeth = toothRoots.length / ROOTSPERTOOTH;
+  const rootRootIndices = Array.from(
+    { length: numTeeth },
+    (_, i) => i * ROOTSPERTOOTH,
+  );
   if (flankDirection === 1)
-    rootRootIndices.forEach((_, i) => (rootRootIndices[i] += 1));
+    rootRootIndices.forEach((_, i) => (rootRootIndices[i] += 2));
   const pitchPolars = pitchCurve.fidelicDiscreteLoop.polarVectors;
   const fidelity = pitchPolars.length;
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
@@ -217,7 +218,8 @@ const generateFlankSegments = (
       }
       // boundary line intersection break condition
       const nextRootRootIndex =
-        (((rootRootIndex + turningDirection) % numRoots) + numRoots) % numRoots;
+        (((rootRootIndex + 2 * turningDirection) % numRoots) + numRoots) %
+        numRoots;
       const nextRoot = toothRoots[nextRootRootIndex];
       const thisRoot = toothRoots[rootRootIndex];
       const nextLineCrossed =
@@ -271,7 +273,7 @@ const generateToothFlanks = (
     -1,
   );
   const toothFlankPairs = toothRoots.map((root, index) => {
-    index = Math.floor(index / 2);
+    index = Math.floor(index / ROOTSPERTOOTH);
     return {
       fwdFlank: { tip: fwdFlankTips[index], base: fwdFlankBases[index], root },
       bwdFlank: { tip: bwdFlankTips[index], base: bwdFlankBases[index], root },
