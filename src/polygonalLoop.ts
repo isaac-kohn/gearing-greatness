@@ -3,30 +3,24 @@ import {
   curvatureAtIndexOfVertexArray,
   tangentAtIndexOfVertexArray,
 } from "./calc";
-import { cross, dot, normalizeVector } from "./vector";
 import type { PolarVector, Vector2d } from "./vector";
 
-import { polarToVertex, distance, sub, getAngle, rotate } from "./vector";
+import { polarToVertex, distance } from "./vector";
 
 export interface PolygonalLoop {
   polarVectors: PolarVector[];
-  // defined
-  center: Vector2d;
-  // derived
-  vertices: Vector2d[]; // vertices are relative to center
+  // vertices are in local space (relative to an external orientation's center)
+  vertices: Vector2d[];
   cumulativeLengths: number[];
   totalLength: number;
-  // functions
   curvatureAtIndex: (index: number) => number;
   findIndexOfCumulativeLength: (length: number) => number;
   tangentAtIndex: (index: number) => Vector2d;
-  // default
-  rotation: number;
 }
 
 const cumulativeLengthsOfVertexPath = (
   vertices: Vector2d[],
-): { cumulativeLengths; totalLength } => {
+): { cumulativeLengths: number[]; totalLength: number } => {
   let cumulativeLengths: number[] = [0];
   for (let i = 0; i < vertices.length - 1; i++) {
     const segmentLength = distance(vertices[i], vertices[i + 1]);
@@ -40,19 +34,16 @@ const cumulativeLengthsOfVertexPath = (
 };
 
 export const createPolygonalLoop = (
-  center: Vector2d,
   polarVectors: PolarVector[],
 ): PolygonalLoop => {
   const vertices = polarVectors.map(polarToVertex);
   const { cumulativeLengths, totalLength } =
     cumulativeLengthsOfVertexPath(vertices);
   return {
-    center,
     polarVectors,
     vertices,
     cumulativeLengths,
     totalLength,
-    rotation: 0,
     curvatureAtIndex: (index) => curvatureAtIndexOfVertexArray(vertices, index),
     tangentAtIndex: (index) => tangentAtIndexOfVertexArray(vertices, index),
     findIndexOfCumulativeLength: (length) =>

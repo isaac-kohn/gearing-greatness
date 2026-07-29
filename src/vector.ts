@@ -13,9 +13,26 @@ export interface Line {
   v1: Vector2d;
 }
 
+export interface Orientation {
+  center: Vector2d;
+  rotation: number;
+  mirrored: boolean;
+}
+
+export const createOrientation = (
+  center: Vector2d = { x: 0, y: 0 },
+  rotation = 0,
+  mirrored = false,
+): Orientation => ({
+  center: { ...center },
+  rotation,
+  mirrored,
+});
+
 export const add = (a: Vector2d, b: Vector2d): Vector2d => {
   return { x: a.x + b.x, y: a.y + b.y };
 };
+
 
 export const sub = (a: Vector2d, b: Vector2d): Vector2d => {
   return { x: a.x - b.x, y: a.y - b.y };
@@ -75,6 +92,16 @@ export const rotate = (v: Vector2d, radians: number): Vector2d => {
     x: v.x * c - v.y * s,
     y: v.x * s + v.y * c,
   };
+};
+
+/** local -> rotate -> optional mirror (flip x) -> translate to center */
+export const toWorld = (
+  local: Vector2d,
+  orientation: Orientation,
+): Vector2d => {
+  let v = rotate(local, orientation.rotation);
+  if (orientation.mirrored) v = { x: -v.x, y: v.y };
+  return add(orientation.center, v);
 };
 
 export const normalizeVector = (v: Vector2d): Vector2d => {

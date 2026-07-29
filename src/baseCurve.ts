@@ -26,6 +26,8 @@ export interface BaseCurve {
   curvatureSignMap: (-1 | 1 | 0)[];
   fidelicSignedCumulativeLengths: number[];
   fidelicSignedTotalLength: number;
+  leastInnerOffset: number;
+  leastOuterOffset: number;
 }
 
 export const createBaseCurve = (
@@ -36,6 +38,8 @@ export const createBaseCurve = (
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
   const curvatureSignMap: (-1 | 1 | 0)[] = [];
   const zeroCurvatureAtRadiusThreshold = 2 * pitchCurve.averageRadius;
+  let leastInnerOffset = Infinity;
+  let leastOuterOffset = Infinity;
   const baseCurveVertices: Vector2d[] = pitchVertices.map((vertex, i) => {
     const curvature = pitchCurve.fidelicDiscreteLoop.curvatureAtIndex(i);
     const curvatureSign =
@@ -50,6 +54,18 @@ export const createBaseCurve = (
     const tang = tangentAtIndexOfVertexArray(pitchVertices, i);
     const pitchRadius = curvature === 0 ? NaN : 1 / curvature;
     const offsetMag = pitchRadius * Math.sin(pressureAngle);
+    const absMag = Math.abs(offsetMag);
+    if (curvatureSign === -1 && absMag < leastOuterOffset) {
+      leastOuterOffset = absMag;
+    } else if (curvatureSign === 1 && absMag < leastInnerOffset) {
+      console.log(i);
+      console.log(tang);
+      console.log(tangentAtIndexOfVertexArray(pitchVertices, 0));
+      console.log(pitchVertices.at(0));
+      console.log(pitchVertices.at(1));
+      console.log(pitchVertices.at(2));
+      leastInnerOffset = absMag;
+    }
     const offsetDir = normalizeAngle(getAngle(tang)) + pressureAngle;
     const polarOffset: PolarVector = { mag: offsetMag, angle: offsetDir };
     return add(polarToVertex(polarOffset), vertex);
@@ -81,10 +97,7 @@ export const createBaseCurve = (
   });
   console.log(wrapSignMap);*/
   // convoluted and prob inefficient but idc way of sampling smaller array for rendering
-  const fidelicDiscreteLoop = createPolygonalLoop(
-    pitchCurve.fidelicDiscreteLoop.center,
-    baseCurvePolarVectors,
-  );
+  const fidelicDiscreteLoop = createPolygonalLoop(baseCurvePolarVectors);
   const cumulativeLengths = fidelicDiscreteLoop.cumulativeLengths;
   const fidelicSignedCumulativeLengths = [0];
   let signedCumulativeLength = 0;
@@ -107,10 +120,7 @@ export const createBaseCurve = (
     polyPar,
     renderFidelity,
   );
-  const renderedDiscreteLoop = createPolygonalLoop(
-    pitchCurve.renderedDiscreteLoop.center,
-    renderedPolarVectors,
-  );
+  const renderedDiscreteLoop = createPolygonalLoop(renderedPolarVectors);
   return {
     fidelicDiscreteLoop,
     renderedDiscreteLoop,
@@ -118,5 +128,7 @@ export const createBaseCurve = (
     fidelicSignedCumulativeLengths,
     fidelicSignedTotalLength,
     curvatureSignMap,
+    leastInnerOffset,
+    leastOuterOffset,
   };
 };

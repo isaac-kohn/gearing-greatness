@@ -1,5 +1,6 @@
 import { createBaseCurve, type BaseCurve } from "./baseCurve";
 import {
+  arrayBinarySearch,
   discretePolarArrayToPolarParameterization,
   discretizePolarParamaterization,
   tangentAtIndexOfVertexArray,
@@ -7,14 +8,17 @@ import {
 } from "./calc";
 import {
   createConjugatePitchCurve,
-  createPitchCurve,
+  createPitchCurveFromPolarParam,
+  findConjugateCenterDistance,
   type PitchCurve,
 } from "./pitchCurve";
 import { createPolygonalLoop, type PolygonalLoop } from "./polygonalLoop";
 import {
   add,
+  createOrientation,
   distance,
   getAngle,
+  normalizeAngle,
   normalizeVector,
   perp,
   polarToVertex,
@@ -24,6 +28,7 @@ import {
   vertexLineHandedness,
   vertexToPolar,
   type Line,
+  type Orientation,
   type PolarVector,
   type Vector2d,
 } from "./vector";
@@ -42,6 +47,7 @@ export interface ToothFlank {
 
 export interface Gear {
   pitchCurve: PitchCurve;
+  pressureAngle: number;
   numTeeth: number;
   addendum: number;
   dedendum: number;
@@ -58,14 +64,19 @@ export interface Gear {
   fidelity: number;
   renderFidelity: number;
   renderMode: "default" | "skeleton";
+  orientation: Orientation;
+  // single conjugate partner, if any
+  conjugate: Gear | null;
   setDirection: (angle: number) => void;
   getDirection: () => number;
   getCenter: () => Vector2d;
   setCenter: (v: Vector2d) => void;
 }
 
-const generateDedendumFn = (pitchCurve: PitchCurve): PolygonalLoop => {
-  const pressureAngle = (30 * Math.PI) / 180;
+const generateDedendumFn = (
+  pitchCurve: PitchCurve,
+  pressureAngle: number,
+): PolygonalLoop => {
   const fidelity = pitchCurve.fidelity;
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
   const vertexArray = pitchVertices.map((vertex, i) => {
@@ -80,7 +91,7 @@ const generateDedendumFn = (pitchCurve: PitchCurve): PolygonalLoop => {
     return add(polarToVertex(polarOffset), vertex);
   });
   const polarArray: PolarVector[] = vertexArray.map(vertexToPolar);
-  return createPolygonalLoop(pitchCurve.fidelicDiscreteLoop.center, polarArray);
+  return createPolygonalLoop(polarArray);
 };
 
 const generateAdendumFn = (
@@ -180,7 +191,7 @@ const generateFlankSegments = (
     let prevVertex: Vector2d = { ...pitchVertices[rootFidelicIndex] };
     flankSegments.push([]);
     let whileLoopCount = 0;
-    const whileLoopLimit = 10 * (fidelity / numRoots);
+    const whileLoopLimit = 20 * (fidelity / numRoots);
     let unNormalizedIndex = rootFidelicIndex + fidelity;
     let baseStartCircum = baseLengths[unNormalizedIndex];
     let tangentStartLength = distance(
@@ -218,8 +229,7 @@ const generateFlankSegments = (
       }
       // boundary line intersection break condition
       const nextRootRootIndex =
-        (((rootRootIndex + 2 * turningDirection) % numRoots) + numRoots) %
-        numRoots;
+        (((rootRootIndex + turningDirection) % numRoots) + numRoots) % numRoots;
       const nextRoot = toothRoots[nextRootRootIndex];
       const thisRoot = toothRoots[rootRootIndex];
       const nextLineCrossed =
@@ -288,7 +298,7 @@ const trimFlankSegments = (
   segmentB: Vector2d[],
 ) => {};
 
-export const createGear = (
+export const createGearFromPolarParam = (
   polarParamaterization: PolarParamaterization,
   pressureAngle: number,
   numTeeth: number,
@@ -296,28 +306,17 @@ export const createGear = (
   dedendum: number,
   fidelity: number = 1000,
   renderFidelity: number = 100,
+  orientation: Orientation = createOrientation(),
 ): Gear => {
-  let direction = 0;
-  let center: Vector2d = { x: 0, y: 0 };
-  const pitchCurve = createPitchCurve(
+  orientation = createOrientation(
+    orientation.center,
+    orientation.rotation,
+    orientation.mirrored,
+  );
+  const pitchCurve = createPitchCurveFromPolarParam(
     polarParamaterization,
-    center,
     fidelity,
     renderFidelity,
-  );
-  const addendumFn = generateAdendumFn(pitchCurve, addendum);
-  const dedendumFn = generateAdendumFn(pitchCurve, -dedendum);
-  const polyAddendum: PolygonalLoop = createPolygonalLoop(
-    center,
-    discretizePolarParamaterization(addendumFn, renderFidelity),
-  );
-  const polyDedendum = createPolygonalLoop(
-    center,
-    discretizePolarParamaterization(dedendumFn, renderFidelity),
-  );
-  const toothRoots = generateToothRoots(
-    numTeeth,
-    pitchCurve.fidelicDiscreteLoop,
   );
   const fwdBaseCurve = createBaseCurve(
     pitchCurve,
@@ -327,6 +326,26 @@ export const createGear = (
     pitchCurve,
     -(pressureAngle * Math.PI) / 180,
   );
+  addendum = Math.min(
+    fwdBaseCurve.leastOuterOffset,
+    bwdBaseCurve.leastOuterOffset,
+  );
+  dedendum = Math.min(
+    fwdBaseCurve.leastInnerOffset,
+    bwdBaseCurve.leastInnerOffset,
+  );
+  const addendumFn = generateAdendumFn(pitchCurve, addendum);
+  const dedendumFn = generateAdendumFn(pitchCurve, -dedendum);
+  const polyAddendum: PolygonalLoop = createPolygonalLoop(
+    discretizePolarParamaterization(addendumFn, renderFidelity),
+  );
+  const polyDedendum = createPolygonalLoop(
+    discretizePolarParamaterization(dedendumFn, renderFidelity),
+  );
+  const toothRoots = generateToothRoots(
+    numTeeth,
+    pitchCurve.fidelicDiscreteLoop,
+  );
   const toothFlankPairs = generateToothFlanks(
     toothRoots,
     pitchCurve,
@@ -335,10 +354,25 @@ export const createGear = (
   );
   const fwdFlanks = toothFlankPairs.map((pair) => pair.fwdFlank);
   const bwdFlanks = toothFlankPairs.map((pair) => pair.bwdFlank);
-  return {
+
+  const syncConjugateAngle = (angle: number) => {
+    const mate = gear.conjugate;
+    if (!mate) return;
+    const driveMap = pitchCurve.thetaMap;
+    const mateMap = mate.pitchCurve.thetaMap;
+    if (driveMap.length === 0 || mateMap.length === 0) return;
+    mate.orientation.rotation = conjugateAngleFromThetaMaps(
+      driveMap,
+      mateMap,
+      angle,
+    );
+  };
+
+  const gear: Gear = {
     pitchCurve,
     fwdBaseCurve,
     bwdBaseCurve,
+    pressureAngle,
     numTeeth,
     addendum,
     dedendum,
@@ -348,28 +382,65 @@ export const createGear = (
     fidelity,
     renderFidelity,
     renderMode: "default",
+    orientation,
+    conjugate: null,
     toothRoots,
     fwdFlanks,
     bwdFlanks,
-    getDirection: () => direction,
+    getDirection: () => orientation.rotation,
     setDirection: (angle: number) => {
-      direction = angle;
+      angle = normalizeAngle(angle);
+      orientation.rotation = angle;
+      syncConjugateAngle(angle);
     },
-    getCenter: () => center,
+    getCenter: () => orientation.center,
     setCenter: (v: Vector2d) => {
-      center = v;
+      orientation.center = { ...v };
     },
   };
+  return gear;
+};
+
+const conjugateAngleFromThetaMaps = (
+  driveMap: number[],
+  mateMap: number[],
+  angle: number,
+): number => {
+  // search driveMap for an index approximation to the given angle
+  const baseIndex = arrayBinarySearch(driveMap, (sampleAngle) => {
+    sampleAngle = normalizeAngle(sampleAngle);
+    if (sampleAngle > angle) return "high";
+    if (sampleAngle < angle) return "low";
+    return "equal";
+  });
+  // even though it's prob not the most accurate, we just do a lerp for the anlge overshoot, as error will disappear with higher fidelity
+  const baseAngle = driveMap[baseIndex];
+  const angleOvershoot = angle - baseAngle;
+  const nextIndex = baseIndex + 1 < driveMap.length ? baseIndex + 1 : 0;
+  const nextAngle = driveMap[nextIndex];
+  const decimalIndex = baseIndex + angleOvershoot / (nextAngle - baseAngle);
+  const lerpRatio = decimalIndex - baseIndex;
+  return (
+    mateMap[baseIndex] + lerpRatio * (mateMap[nextIndex] - mateMap[baseIndex])
+  );
 };
 
 export const createConjugateGear = (gearA: Gear): Gear => {
-  const conjPolarParam = createConjugatePitchCurve(gearA.pitchCurve);
-  return createGear(
-    conjPolarParam.polarParamaterization,
+  const L = findConjugateCenterDistance(gearA.pitchCurve);
+  const conjPitch = createConjugatePitchCurve(gearA.pitchCurve);
+  const centerA = gearA.orientation.center;
+  const gearB = createGearFromPolarParam(
+    conjPitch.polarParamaterization,
+    gearA.pressureAngle,
     gearA.numTeeth,
     gearA.addendum,
     gearA.dedendum,
-    conjPolarParam.fidelity,
-    conjPolarParam.renderFidelity,
+    conjPitch.fidelity,
+    conjPitch.renderFidelity,
+    createOrientation({ x: centerA.x + L, y: centerA.y }, 0, true),
   );
+  gearB.pitchCurve.thetaMap = conjPitch.thetaMap;
+  gearA.conjugate = gearB;
+  gearB.conjugate = gearA;
+  return gearB;
 };

@@ -90,7 +90,7 @@ export const discretizePolarParamaterization = (
   polarParamaterization: PolarParamaterization,
   numSamples = 0,
 ): PolarVector[] => {
-  if (numSamples === 0) numSamples = 50;
+  if (numSamples <= 0) numSamples = 50;
   const maxDom = polarParamaterization.domainMax;
   const minDom = polarParamaterization.domainMin;
   const paramSamples = Array.from(
@@ -103,22 +103,26 @@ export const discretizePolarParamaterization = (
 export const discretePolarArrayToPolarParameterization = (
   polarVectors: PolarVector[],
 ): PolarParamaterization => {
+  const fidelity = polarVectors.length;
   const paramLerp = (u: number): PolarVector => {
+    u = ((u % fidelity) + fidelity) % fidelity;
     const baseIndex = Math.floor(u);
     const lerpRatio = u - baseIndex;
-    const nextIndex = baseIndex + 1 < polarVectors.length ? baseIndex + 1 : 0;
+    const nextIndex = (baseIndex + 1) % fidelity;
     const v0 = polarVectors[baseIndex];
     const v1 = polarVectors[nextIndex];
     return vertexToPolar(lerp(polarToVertex(v0), polarToVertex(v1), lerpRatio));
   };
-  return { fn: paramLerp, domainMin: 0, domainMax: polarVectors.length };
+  return { fn: paramLerp, domainMin: 0, domainMax: fidelity };
 };
 
 export const tangentAtIndexOfVertexArray = (
   vertices: Vector2d[],
   index: number,
 ): Vector2d => {
-  const nextIndex = index + 1 < vertices.length ? index + 1 : 0;
+  const fidelity = vertices.length;
+  index = ((index % fidelity) + fidelity) % fidelity;
+  const nextIndex = (((index + 1) % fidelity) + fidelity) % fidelity;
   return normalizeVector(sub(vertices[nextIndex], vertices[index]));
 };
 

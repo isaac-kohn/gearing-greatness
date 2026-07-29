@@ -2,10 +2,7 @@ import { createPolygonalLoop } from "./polygonalLoop";
 import type { PolygonalLoop } from "./polygonalLoop";
 import {
   distance,
-  lerp,
-  normalizeAngle,
   polarToVertex,
-  vertexToPolar,
   type PolarVector,
   type Vector2d,
 } from "./vector";
@@ -38,12 +35,10 @@ export interface PitchCurve {
   fidelity: number;
   // the number of vertices to be used in the renderedDiscreteLoop rendering geometry
   renderFidelity: number;
-  matedCurves: PitchCurve[];
 }
 
-export const createPitchCurve = (
+export const createPitchCurveFromPolarParam = (
   polarParamaterization: PolarParamaterization,
-  center: Vector2d = { x: -100, y: 0 },
   fidelity = 1000,
   renderFidelity = 100,
 ): PitchCurve => {
@@ -55,8 +50,8 @@ export const createPitchCurve = (
     polarParamaterization,
     fidelity,
   );
-  const polygonalLoop = createPolygonalLoop(center, renderedPolarVectors);
-  const fidelicDiscreteLoop = createPolygonalLoop(center, fidelicPolarVectors);
+  const polygonalLoop = createPolygonalLoop(renderedPolarVectors);
+  const fidelicDiscreteLoop = createPolygonalLoop(fidelicPolarVectors);
   const { cumulativeLengths, totalLength } = generateCumulativeLengths(
     polarParamaterization,
     fidelity,
@@ -76,11 +71,10 @@ export const createPitchCurve = (
     thetaMap: [],
     fidelity,
     renderFidelity,
-    matedCurves: [],
   };
 };
 
-const findConjugateCenterDistance = (
+export const findConjugateCenterDistance = (
   pitchCurveA: PitchCurve,
   periodRatio: { a: number; b: number } = { a: 1, b: 1 },
 ): number => {
@@ -112,51 +106,39 @@ export const createConjugatePitchCurve = (
 ): PitchCurve => {
   const L = findConjugateCenterDistance(pitchCurveA);
   const fidelity = pitchCurveA.fidelity;
-  let polarArrayB: PolarVector[] = [];
-  let thetaArrayA: number[] = [];
+  const maxDom = pitchCurveA.polarParamaterization.domainMax;
+  const minDom = pitchCurveA.polarParamaterization.domainMin;
+  const polarArrayB: PolarVector[] = [];
+  const thetaArrayA: number[] = [];
   let thetaB = 0;
-  let thetaA = 0;
-  for (let i = 0; i < fidelity; i++) {
-    const maxDom = pitchCurveA.polarParamaterization.domainMax;
-    const minDom = pitchCurveA.polarParamaterization.domainMin;
+  const firstPolarA = pitchCurveA.polarParamaterization.fn(minDom);
+  let thetaA = firstPolarA.angle;
+  polarArrayB.push({ angle: thetaB, mag: L - firstPolarA.mag });
+  thetaArrayA.push(thetaA);
+  for (let i = 1; i < fidelity; i++) {
     const t = minDom + (i * (maxDom - minDom)) / fidelity;
     const polarA = pitchCurveA.polarParamaterization.fn(t);
-    const prevThetaA = thetaA;
+    const deltaThetaA = polarA.angle - thetaA;
     thetaA = polarA.angle;
-    const deltaThetaA = thetaA - prevThetaA;
     const magA = polarA.mag;
     const magB = L - magA;
-    polarArrayB.push({ angle: thetaB, mag: magB });
+    // advance angle before recording so each sample gets a distinct thetaB
     thetaB += (deltaThetaA * magA) / magB;
-    thetaArrayA.push(prevThetaA);
+    polarArrayB.push({ angle: thetaB, mag: magB });
+    thetaArrayA.push(thetaA);
   }
   const polarParamB: PolarParamaterization =
     discretePolarArrayToPolarParameterization(polarArrayB);
-  let polyPolars = discretizePolarParamaterization(
+  const polyPolars = discretizePolarParamaterization(
     polarParamB,
     pitchCurveA.renderFidelity,
   );
-  // we mirror bro
-  polyPolars = polyPolars.map((polar) => {
-    return { mag: polar.mag, angle: Math.PI - polar.angle };
-  });
-  const centerPosA = pitchCurveA.renderedDiscreteLoop.center;
-  const polygonalLoop = createPolygonalLoop(
-    { x: centerPosA.x + L, y: centerPosA.y },
-    polyPolars,
-  );
-  let fidelicPolyPolars = discretizePolarParamaterization(
+  const polygonalLoop = createPolygonalLoop(polyPolars);
+  const fidelicPolyPolars = discretizePolarParamaterization(
     polarParamB,
     pitchCurveA.fidelity,
   );
-  // we mirror bro
-  fidelicPolyPolars = polyPolars.map((polar) => {
-    return { mag: polar.mag, angle: Math.PI - polar.angle };
-  });
-  const fidelicDiscreteLoop = createPolygonalLoop(
-    { x: centerPosA.x + L, y: centerPosA.y },
-    fidelicPolyPolars,
-  );
+  const fidelicDiscreteLoop = createPolygonalLoop(fidelicPolyPolars);
   const thetaMapB = polarArrayB.map((polar) => polar.angle);
   pitchCurveA.thetaMap = thetaArrayA;
   const { cumulativeLengths, totalLength } = generateCumulativeLengths(
@@ -178,38 +160,8 @@ export const createConjugatePitchCurve = (
     averageRadius,
     fidelity: pitchCurveA.fidelity,
     renderFidelity: pitchCurveA.renderFidelity,
-    matedCurves: [pitchCurveA],
   };
-  pitchCurveA.matedCurves.push(pitchCurveB);
   return pitchCurveB;
-};
-
-export const setCurveAngle = (pitchCurve: PitchCurve, angle: number): void => {
-  angle = normalizeAngle(angle);
-  pitchCurve.renderedDiscreteLoop.rotation = angle;
-  pitchCurve.fidelicDiscreteLoop.rotation = angle;
-  // search thetaMap for the an index approximation to the given angle
-  const baseIndex = arrayBinarySearch(pitchCurve.thetaMap, (sampleAngle) => {
-    sampleAngle = normalizeAngle(sampleAngle);
-    if (sampleAngle > angle) return "high";
-    if (sampleAngle < angle) return "low";
-    return "equal";
-  });
-  // even though it's prob not the most accurate, we just do a lerp for the anlge overshoot, as error will disappear with higher fidelity
-  const baseAngle = pitchCurve.thetaMap[baseIndex];
-  const angleOvershoot = angle - baseAngle;
-  const nextIndex =
-    baseIndex + 1 < pitchCurve.thetaMap.length ? baseIndex + 1 : 0;
-  const nextAngle = pitchCurve.thetaMap[nextIndex];
-  const decimalIndex = baseIndex + angleOvershoot / (nextAngle - baseAngle);
-  pitchCurve.matedCurves.forEach((mate) => {
-    const lerpRatio = decimalIndex - baseIndex;
-    const mateCurveTargetAngle =
-      mate.thetaMap[baseIndex] +
-      lerpRatio * (mate.thetaMap[nextIndex] - mate.thetaMap[baseIndex]);
-    mate.renderedDiscreteLoop.rotation = -mateCurveTargetAngle;
-    // setCurveAngle(mate, mateCurveTargetAngle);
-  });
 };
 
 export const findIndexOfCumulativeLength = (

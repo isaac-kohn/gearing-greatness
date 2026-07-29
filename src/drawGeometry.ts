@@ -1,15 +1,17 @@
-import type { Gear, ToothFlank } from "./gear";
+import type { Gear } from "./gear";
 import type { PitchCurve } from "./pitchCurve";
 import { type PolygonalLoop } from "./polygonalLoop";
 import {
   add,
+  createOrientation,
   distance,
-  magnitude,
   normalizeVector,
   rotate,
   scale,
   sub,
+  toWorld,
   type Line,
+  type Orientation,
   type Vector2d,
 } from "./vector";
 
@@ -32,39 +34,37 @@ export const drawPoint = (
 export const drawPolygonalLoop = (
   context: CanvasRenderingContext2D,
   loop: PolygonalLoop,
+  orientation: Orientation = createOrientation(),
   fill = false,
   stroke = true,
   displayCenter = true,
 ) => {
-  const vertices = loop.vertices.map((vertex) => rotate(vertex, loop.rotation));
+  const vertices = loop.vertices.map((vertex) => toWorld(vertex, orientation));
   context.beginPath();
-  context.moveTo(vertices[0].x + loop.center.x, vertices[0].y + loop.center.y);
-  for (let i = 1; i < loop.vertices.length; i++) {
-    context.lineTo(
-      vertices[i].x + loop.center.x,
-      vertices[i].y + loop.center.y,
-    );
+  context.moveTo(vertices[0].x, vertices[0].y);
+  for (let i = 1; i < vertices.length; i++) {
+    context.lineTo(vertices[i].x, vertices[i].y);
   }
   context.closePath();
   fill && context.fill();
   stroke && context.stroke();
   if (displayCenter) {
-    drawPoint(context, loop.center, { radius: 3, color: "red" });
+    drawPoint(context, orientation.center, { radius: 3, color: "red" });
   }
 };
 
 export const drawPolygonalChain = (
   context: CanvasRenderingContext2D,
   vertices: Vector2d[],
-  center: Vector2d,
+  orientation: Orientation,
   fill = false,
   stroke = true,
 ) => {
-  vertices = vertices.map((vertex) => add(center, vertex));
+  const world = vertices.map((vertex) => toWorld(vertex, orientation));
   context.beginPath();
-  context.moveTo(vertices[0].x, vertices[0].y);
-  for (let i = 1; i < vertices.length; i++) {
-    context.lineTo(vertices[i].x, vertices[i].y);
+  context.moveTo(world[0].x, world[0].y);
+  for (let i = 1; i < world.length; i++) {
+    context.lineTo(world[i].x, world[i].y);
   }
   fill && context.fill();
   stroke && context.stroke();
@@ -73,6 +73,7 @@ export const drawPolygonalChain = (
 export const drawPitchCurve = (
   context: CanvasRenderingContext2D,
   curve: PitchCurve,
+  orientation: Orientation,
   fill = false,
   stroke = true,
   displayCenter = true,
@@ -80,6 +81,7 @@ export const drawPitchCurve = (
   drawPolygonalLoop(
     context,
     curve.renderedDiscreteLoop,
+    orientation,
     fill,
     stroke,
     displayCenter,
@@ -87,15 +89,22 @@ export const drawPitchCurve = (
 };
 
 const drawToothRoots = (context: CanvasRenderingContext2D, gear: Gear) => {
+  const orientation = gear.orientation;
   for (const toothRoot of gear.toothRoots) {
-    drawPoint(
-      context,
-      add(gear.pitchCurve.renderedDiscreteLoop.center, toothRoot.vertex),
-    );
-    drawLine(context, toothRoot.normalLine, {
-      extendLength: 20,
-      color: "orange",
+    drawPoint(context, toWorld(toothRoot.vertex, orientation), {
+      radius: 1,
     });
+    drawLine(
+      context,
+      {
+        v0: toWorld(toothRoot.normalLine.v0, orientation),
+        v1: toWorld(toothRoot.normalLine.v1, orientation),
+      },
+      {
+        extendLength: 20,
+        color: "orange",
+      },
+    );
   }
 };
 
@@ -105,30 +114,15 @@ const drawToothFlanks = (
   style?: { color?: string | CanvasGradient | CanvasPattern },
 ) => {
   const color = style?.color || "blue";
+  const orientation = gear.orientation;
   context.strokeStyle = color;
   for (const toothFlank of gear.fwdFlanks) {
-    drawPolygonalChain(
-      context,
-      toothFlank.tip,
-      gear.pitchCurve.renderedDiscreteLoop.center,
-    );
-    drawPolygonalChain(
-      context,
-      toothFlank.base,
-      gear.pitchCurve.renderedDiscreteLoop.center,
-    );
+    drawPolygonalChain(context, toothFlank.tip, orientation);
+    drawPolygonalChain(context, toothFlank.base, orientation);
   }
   for (const toothFlank of gear.bwdFlanks) {
-    drawPolygonalChain(
-      context,
-      toothFlank.tip,
-      gear.pitchCurve.renderedDiscreteLoop.center,
-    );
-    drawPolygonalChain(
-      context,
-      toothFlank.base,
-      gear.pitchCurve.renderedDiscreteLoop.center,
-    );
+    drawPolygonalChain(context, toothFlank.tip, orientation);
+    drawPolygonalChain(context, toothFlank.base, orientation);
   }
 };
 
@@ -138,14 +132,27 @@ export const drawGear = (
   index: undefined | number = undefined,
 ) => {
   const fidelity = gear.fidelity;
+  const orientation = gear.orientation;
   if (index !== undefined) {
     index = Math.floor(index);
     index = ((index % fidelity) + fidelity) % fidelity;
   }
-  drawPitchCurve(context, gear.pitchCurve);
+  drawPolygonalLoop(
+    context,
+    gear.pitchCurve.renderedDiscreteLoop,
+    orientation,
+  );
   context.lineWidth = 0.5;
-  drawPolygonalLoop(context, gear.bwdBaseCurve.renderedDiscreteLoop);
-  drawPolygonalLoop(context, gear.fwdBaseCurve.renderedDiscreteLoop);
+  drawPolygonalLoop(
+    context,
+    gear.bwdBaseCurve.renderedDiscreteLoop,
+    orientation,
+  );
+  drawPolygonalLoop(
+    context,
+    gear.fwdBaseCurve.renderedDiscreteLoop,
+    orientation,
+  );
   context.lineWidth = 1;
   context.strokeStyle = "#0ff";
   /*
@@ -156,16 +163,26 @@ export const drawGear = (
     context.lineTo(v1.x, v1.y);
     context.stroke();
   });*/
-  const v0 = gear.pitchCurve.fidelicDiscreteLoop.vertices[index];
-  const v1 = gear.bwdBaseCurve.fidelicDiscreteLoop.vertices[index];
-  context.strokeStyle = "#00f";
-  context.lineWidth = 1;
-  context.beginPath();
-  context.moveTo(v0.x, v0.y);
-  context.lineTo(v1.x, v1.y);
-  context.stroke();
+  if (index !== undefined) {
+    const v0 = toWorld(
+      gear.pitchCurve.fidelicDiscreteLoop.vertices[index],
+      orientation,
+    );
+    const v1 = toWorld(
+      gear.bwdBaseCurve.fidelicDiscreteLoop.vertices[index],
+      orientation,
+    );
+    context.strokeStyle = "#00f";
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(v0.x, v0.y);
+    context.lineTo(v1.x, v1.y);
+    context.stroke();
+  }
   //drawPolygonalLoop(context, gear.polyAddendum, fill, stroke, displayCenter);
   //drawPolygonalLoop(context, gear.polyDedendum);
+  drawPolygonalLoop(context, gear.polyAddendum, orientation);
+  drawPolygonalLoop(context, gear.polyDedendum, orientation);
   drawToothRoots(context, gear);
   drawToothFlanks(context, gear);
 };
@@ -175,6 +192,7 @@ export const drawCircleOfBestFitAtLoopIndex = (
   loop: PolygonalLoop,
   index: number,
   pressureAngle: number,
+  orientation: Orientation = createOrientation(),
 ) => {
   const vertices = loop.vertices;
   index = Math.round(index);
@@ -183,13 +201,12 @@ export const drawCircleOfBestFitAtLoopIndex = (
   const index1 = (((index + 1) % len) + len) % len;
   const curvature = loop.curvatureAtIndex(index);
   const radius = 1 / curvature;
-  const center = loop.center;
   const v0 = vertices[index0];
   const v1 = vertices[index1];
   const tang = sub(v1, v0);
   const norm = normalizeVector(rotate(tang, Math.PI / 2));
   let circCenter = add(v0, scale(norm, radius));
-  circCenter = add(center, rotate(circCenter, loop.rotation));
+  circCenter = toWorld(circCenter, orientation);
   context.lineWidth = 1;
   context.strokeStyle = "blue";
   context.beginPath();

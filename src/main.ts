@@ -7,10 +7,9 @@ import {
 } from "./drawGeometry";
 import {
   createConjugatePitchCurve,
-  createPitchCurve,
-  setCurveAngle,
+  createPitchCurveFromPolarParam,
 } from "./pitchCurve";
-import { createConjugateGear, createGear } from "./gear";
+import { createConjugateGear, createGearFromPolarParam } from "./gear";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
@@ -46,7 +45,7 @@ function resizeCanvas() {
 
 resizeCanvas();
 
-const pitchCurveA = createPitchCurve(
+const pitchCurveA = createPitchCurveFromPolarParam(
   {
     fn: (u) => {
       return { mag: 100 - 10 * Math.cos(3 * u), angle: u };
@@ -54,27 +53,38 @@ const pitchCurveA = createPitchCurve(
     domainMax: 2 * Math.PI,
     domainMin: 0,
   },
-  { x: -100, y: 0 },
   1000,
   30,
 );
 const pitchCurveB = createConjugatePitchCurve(pitchCurveA);
 
-const gearA = createGear(
+const gearA = createGearFromPolarParam(
   {
     fn: (u) => {
-      return { mag: 100 - 0 * Math.cos(3 * u), angle: u };
+      return { mag: 150 - 50 * Math.cos(3 * u), angle: u };
+      /*return {
+        mag: 150 - 50 * Math.cos(3 * u) - 20 * Math.sin(6 * u),
+        angle: u,
+      };*/
     },
     domainMax: 2 * Math.PI,
     domainMin: 0,
   },
   30,
-  10,
+  40,
   15,
   17,
 );
 
-//const gearB = createConjugateGear(gearA);
+const gearB = createConjugateGear(gearA);
+// center the pair around the origin using the conjugate center distance
+{
+  const centerA = gearA.getCenter();
+  const centerB = gearB.getCenter();
+  const midX = (centerA.x + centerB.x) / 2;
+  gearA.setCenter({ x: centerA.x - midX, y: centerA.y });
+  gearB.setCenter({ x: centerB.x - midX, y: centerB.y });
+}
 
 function draw(timeMs: number) {
   const timeSeconds = timeMs / 1000;
@@ -86,23 +96,20 @@ function draw(timeMs: number) {
   context.strokeStyle = "#000";
   context.lineWidth = 2;
 
-  setCurveAngle(pitchCurveB, timeSeconds);
-
   context.fillStyle = "#ff0";
   //drawPitchCurve(context, pitchCurveA, true);
   context.fillStyle = "#ff0";
   context.fillStyle = "#0ff";
   //drawPitchCurve(context, pitchCurveB, true);
-
+  gearA.setDirection(timeSeconds * 0.2);
   drawGear(context, gearA, Math.floor(timeSeconds * 60 * 0.2));
-  //drawGear(context, gearB);
-  //setCurveAngle(gearB.pitchCurve, timeSeconds);
-  drawCircleOfBestFitAtLoopIndex(
+  drawGear(context, gearB, 1);
+  /*drawCircleOfBestFitAtLoopIndex(
     context,
     gearA.pitchCurve.fidelicDiscreteLoop,
     timeSeconds * 60 * 0.2,
     -(30 * Math.PI) / 180,
-  );
+  );*/
 }
 draw(0);
 // runs ~60fps
