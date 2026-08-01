@@ -137,13 +137,9 @@ export const drawGear = (
     index = Math.floor(index);
     index = ((index % fidelity) + fidelity) % fidelity;
   }
-  drawPolygonalLoop(
-    context,
-    gear.pitchCurve.renderedDiscreteLoop,
-    orientation,
-  );
+  drawPolygonalLoop(context, gear.pitchCurve.renderedDiscreteLoop, orientation);
   context.lineWidth = 0.5;
-  drawPolygonalLoop(
+  /*drawPolygonalLoop(
     context,
     gear.bwdBaseCurve.renderedDiscreteLoop,
     orientation,
@@ -152,7 +148,7 @@ export const drawGear = (
     context,
     gear.fwdBaseCurve.renderedDiscreteLoop,
     orientation,
-  );
+  );*/
   context.lineWidth = 1;
   context.strokeStyle = "#0ff";
   /*
@@ -162,7 +158,7 @@ export const drawGear = (
     context.moveTo(v0.x, v0.y);
     context.lineTo(v1.x, v1.y);
     context.stroke();
-  });*/
+  });
   if (index !== undefined) {
     const v0 = toWorld(
       gear.pitchCurve.fidelicDiscreteLoop.vertices[index],
@@ -178,7 +174,7 @@ export const drawGear = (
     context.moveTo(v0.x, v0.y);
     context.lineTo(v1.x, v1.y);
     context.stroke();
-  }
+  }*/
   //drawPolygonalLoop(context, gear.polyAddendum, fill, stroke, displayCenter);
   //drawPolygonalLoop(context, gear.polyDedendum);
   drawPolygonalLoop(context, gear.polyAddendum, orientation);

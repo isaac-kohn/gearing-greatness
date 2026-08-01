@@ -58,12 +58,6 @@ export const createBaseCurve = (
     if (curvatureSign === -1 && absMag < leastOuterOffset) {
       leastOuterOffset = absMag;
     } else if (curvatureSign === 1 && absMag < leastInnerOffset) {
-      console.log(i);
-      console.log(tang);
-      console.log(tangentAtIndexOfVertexArray(pitchVertices, 0));
-      console.log(pitchVertices.at(0));
-      console.log(pitchVertices.at(1));
-      console.log(pitchVertices.at(2));
       leastInnerOffset = absMag;
     }
     const offsetDir = normalizeAngle(getAngle(tang)) + pressureAngle;

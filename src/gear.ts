@@ -68,6 +68,7 @@ export interface Gear {
   // single conjugate partner, if any
   conjugate: Gear | null;
   setDirection: (angle: number) => void;
+  setDirectionIndividually: (angle: number) => void;
   getDirection: () => number;
   getCenter: () => Vector2d;
   setCenter: (v: Vector2d) => void;
@@ -130,14 +131,17 @@ const generateToothRoots = (
   const totalLength = fidelicDiscreteLoop.totalLength;
   const toothSpacing = totalLength / numToothRoots;
   const toothRoots: ToothRoot[] = [];
+  console.log(fidelicDiscreteLoop.cumulativeLengths);
   for (let i = 0; i < numToothRoots; i++) {
     const targetLength = i * toothSpacing;
     const targetIndex =
-      fidelicDiscreteLoop.findIndexOfCumulativeLength(targetLength);
+      fidelicDiscreteLoop.findIndexOfCumulativeLength(targetLength) % 1000;
+    //console.log(targetIndex);
     const toothRootVertex = fidelicDiscreteLoop.vertices[targetIndex];
     const tangentVector: Vector2d =
       fidelicDiscreteLoop.tangentAtIndex(targetIndex);
     const normalVector = perp(tangentVector);
+    //console.log(toothRootVertex);
     const normalLine: Line = {
       v0: toothRootVertex,
       v1: add(toothRootVertex, normalVector),
@@ -358,8 +362,8 @@ export const createGearFromPolarParam = (
   const syncConjugateAngle = (angle: number) => {
     const mate = gear.conjugate;
     if (!mate) return;
-    const driveMap = pitchCurve.thetaMap;
-    const mateMap = mate.pitchCurve.thetaMap;
+    const driveMap = pitchCurve.angleSyncMap;
+    const mateMap = mate.pitchCurve.angleSyncMap;
     if (driveMap.length === 0 || mateMap.length === 0) return;
     mate.orientation.rotation = conjugateAngleFromThetaMaps(
       driveMap,
@@ -393,6 +397,9 @@ export const createGearFromPolarParam = (
       orientation.rotation = angle;
       syncConjugateAngle(angle);
     },
+    setDirectionIndividually: (angle: number) => {
+      orientation.rotation = angle;
+    },
     getCenter: () => orientation.center,
     setCenter: (v: Vector2d) => {
       orientation.center = { ...v };
@@ -406,28 +413,37 @@ const conjugateAngleFromThetaMaps = (
   mateMap: number[],
   angle: number,
 ): number => {
+  const fidelity = driveMap.length;
+  const driveMapFrom = driveMap.at(0);
+  const driveMapTo =
+    driveMap.at(-1) > driveMapFrom
+      ? driveMapFrom + 2 * Math.PI
+      : driveMapFrom - 2 * Math.PI;
+  const mateMapFrom = mateMap.at(0);
+  const mateMapTo =
+    mateMap.at(-1) > mateMapFrom
+      ? mateMapFrom + 2 * Math.PI
+      : mateMapFrom - 2 * Math.PI;
+  angle = normalizeAngle(angle, driveMapFrom, driveMapTo);
   // search driveMap for an index approximation to the given angle
   const baseIndex = arrayBinarySearch(driveMap, (sampleAngle) => {
-    sampleAngle = normalizeAngle(sampleAngle);
-    if (sampleAngle > angle) return "high";
-    if (sampleAngle < angle) return "low";
+    if (sampleAngle > angle) return driveMapFrom < driveMapTo ? "high" : "low";
+    if (sampleAngle < angle) return driveMapFrom < driveMapTo ? "low" : "high";
     return "equal";
   });
   // even though it's prob not the most accurate, we just do a lerp for the anlge overshoot, as error will disappear with higher fidelity
   const baseAngle = driveMap[baseIndex];
   const angleOvershoot = angle - baseAngle;
-  const nextIndex = baseIndex + 1 < driveMap.length ? baseIndex + 1 : 0;
-  const nextAngle = driveMap[nextIndex];
+  const nextIndex = (((baseIndex + 1) % fidelity) + fidelity) % fidelity;
+  let nextAngle = driveMap[nextIndex];
   const decimalIndex = baseIndex + angleOvershoot / (nextAngle - baseAngle);
   const lerpRatio = decimalIndex - baseIndex;
-  return (
-    mateMap[baseIndex] + lerpRatio * (mateMap[nextIndex] - mateMap[baseIndex])
-  );
+  return mateMap[baseIndex]; //+ lerpRatio * (mateMap[nextIndex] - mateMap[baseIndex])
 };
 
 export const createConjugateGear = (gearA: Gear): Gear => {
   const L = findConjugateCenterDistance(gearA.pitchCurve);
-  const conjPitch = createConjugatePitchCurve(gearA.pitchCurve);
+  const conjPitch = createConjugatePitchCurve(gearA.pitchCurve, L);
   const centerA = gearA.orientation.center;
   const gearB = createGearFromPolarParam(
     conjPitch.polarParamaterization,
@@ -437,9 +453,9 @@ export const createConjugateGear = (gearA: Gear): Gear => {
     gearA.dedendum,
     conjPitch.fidelity,
     conjPitch.renderFidelity,
-    createOrientation({ x: centerA.x + L, y: centerA.y }, 0, true),
+    createOrientation({ x: centerA.x + L, y: centerA.y }, 0, false),
   );
-  gearB.pitchCurve.thetaMap = conjPitch.thetaMap;
+  gearB.pitchCurve.angleSyncMap = conjPitch.angleSyncMap;
   gearA.conjugate = gearB;
   gearB.conjugate = gearA;
   return gearB;

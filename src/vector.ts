@@ -33,7 +33,6 @@ export const add = (a: Vector2d, b: Vector2d): Vector2d => {
   return { x: a.x + b.x, y: a.y + b.y };
 };
 
-
 export const sub = (a: Vector2d, b: Vector2d): Vector2d => {
   return { x: a.x - b.x, y: a.y - b.y };
 };
@@ -140,8 +139,17 @@ export const vertexToPolar = (vertex: Vector2d): PolarVector => {
   return { angle: getAngle(vertex), mag: magnitude(vertex) };
 };
 
-export const normalizeAngle = (angle: number): number => {
-  return ((angle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+export const normalizeAngle = (
+  angle: number,
+  from = 0,
+  to = 2 * Math.PI + from,
+): number => {
+  const range = to - from;
+  if (range === 0) return from;
+  const absRange = Math.abs(range);
+  const shifted = angle - from;
+  const normalizedShifted = ((shifted % absRange) + absRange) % absRange;
+  return range > 0 ? from + normalizedShifted : from - normalizedShifted;
 };
 
 export const lineIntersection = (lineA: Line, lineB: Line): Vector2d | null => {

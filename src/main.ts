@@ -53,27 +53,37 @@ const pitchCurveA = createPitchCurveFromPolarParam(
     domainMax: 2 * Math.PI,
     domainMin: 0,
   },
-  1000,
+  3000,
   30,
 );
-const pitchCurveB = createConjugatePitchCurve(pitchCurveA);
 
 const gearA = createGearFromPolarParam(
   {
     fn: (u) => {
-      return { mag: 150 - 50 * Math.cos(3 * u), angle: u };
-      /*return {
-        mag: 150 - 50 * Math.cos(3 * u) - 20 * Math.sin(6 * u),
+      //return { mag: 150 - 50 * Math.cos(3 * u), angle: u };
+      // fix the tooth normal so that it exists for vertical lines
+      return {
+        mag:
+          150 -
+          15 * Math.cos(7 * u) -
+          20 * Math.sin(5 * u) +
+          10 * Math.sin(4 * u),
         angle: u,
-      };*/
+      };
+      return {
+        mag: 150 - 30 * Math.cos(4 * u) - 50 * Math.sin(1 * u),
+        angle: u,
+      };
     },
     domainMax: 2 * Math.PI,
     domainMin: 0,
   },
   30,
-  40,
+  50,
   15,
   17,
+  1000,
+  100,
 );
 
 const gearB = createConjugateGear(gearA);
@@ -84,6 +94,8 @@ const gearB = createConjugateGear(gearA);
   const midX = (centerA.x + centerB.x) / 2;
   gearA.setCenter({ x: centerA.x - midX, y: centerA.y });
   gearB.setCenter({ x: centerB.x - midX, y: centerB.y });
+  //gearA.setCenter({ x: centerB.x - midX, y: centerB.y });
+  //gearB.setCenter({ x: centerA.x - midX, y: centerA.y });
 }
 
 function draw(timeMs: number) {
@@ -101,7 +113,14 @@ function draw(timeMs: number) {
   context.fillStyle = "#ff0";
   context.fillStyle = "#0ff";
   //drawPitchCurve(context, pitchCurveB, true);
-  gearA.setDirection(timeSeconds * 0.2);
+  //gearA.setDirection(timeSeconds * 0.2);
+  const i = Math.floor(timeMs / 20) % gearA.fidelity;
+  const j = i - (1 % gearA.fidelity);
+  gearA.setDirectionIndividually(gearA.pitchCurve.angleSyncMap[i]);
+  gearB.setDirectionIndividually(gearB.pitchCurve.angleSyncMap[i]);
+  const prevGearAngle = gearB.pitchCurve.angleSyncMap[j];
+  const gearAngle = gearB.pitchCurve.angleSyncMap[i];
+  //console.log(gearAngle - prevGearAngle);
   drawGear(context, gearA, Math.floor(timeSeconds * 60 * 0.2));
   drawGear(context, gearB, 1);
   /*drawCircleOfBestFitAtLoopIndex(
@@ -112,6 +131,7 @@ function draw(timeMs: number) {
   );*/
 }
 draw(0);
+console.log(gearB.pitchCurve.angleSyncMap);
 // runs ~60fps
 
 function animate(timeMs: number) {

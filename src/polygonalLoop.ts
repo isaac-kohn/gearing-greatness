@@ -30,6 +30,7 @@ const cumulativeLengthsOfVertexPath = (
   const totalLength =
     cumulativeLengths[cumulativeLengths.length - 1] +
     distance(vertices[vertices.length - 1], vertices[0]);
+  console.log(totalLength);
   return { cumulativeLengths, totalLength };
 };
 
@@ -60,6 +61,9 @@ const findIndexOfCumulativeLength = (
   targetLength = ((targetLength % totalLength) + totalLength) % totalLength;
   if (targetLength > cumulativeLengths[fidelity - 1]) {
     const baseIndex = fidelity;
+    console.warn(
+      "bug related to cumulative lengths. total Length is too long. see findIndexOfCumulativeLength",
+    );
     return baseIndex;
   }
   const baseIndex = arrayBinarySearch(cumulativeLengths, (sampleLength) => {
