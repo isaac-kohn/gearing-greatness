@@ -44,7 +44,10 @@ const gearA = createGearFromPolarParam(
       // fix the tooth normal so that it exists for vertical lines
       return {
         mag:
-          150 - 5 * Math.cos(7 * u) - 5 * Math.sin(5 * u) + 5 * Math.sin(4 * u),
+          150 -
+          40 * Math.cos(4 * u) -
+          5 * Math.sin(5 * u) +
+          50 * Math.sin(4 * u),
         angle: u,
       };
       return {
@@ -57,8 +60,6 @@ const gearA = createGearFromPolarParam(
   },
   30,
   40,
-  15,
-  17,
   3000,
   100,
 );
@@ -98,11 +99,10 @@ function draw(timeMs: number) {
 draw(0);
 
 // runs ~60fps
-/*
+
 function animate(timeMs: number) {
   draw(timeMs);
   requestAnimationFrame(animate);
 }
 
 requestAnimationFrame(animate);
-*/

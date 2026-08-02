@@ -52,7 +52,6 @@ export interface Gear {
   numTeeth: number;
   addendum: number;
   dedendum: number;
-  addendumFn: PolarParamaterization;
   // the t such that pitchCurve.fn(t) gives the point at which each tooth intersects the pitch curve
   toothRoots: ToothRoot[];
   fwdFlanks: ToothFlank[];
@@ -313,8 +312,6 @@ export const createGearFromPolarParam = (
   polarParamaterization: PolarParamaterization,
   pressureAngle: number,
   numTeeth: number,
-  addendum: number,
-  dedendum: number,
   fidelity: number = 1000,
   renderFidelity: number = 100,
   orientation: Orientation = createOrientation(),
@@ -337,35 +334,34 @@ export const createGearFromPolarParam = (
     pitchCurve,
     -(pressureAngle * Math.PI) / 180,
   );
-  addendum = Math.min(
+  let addendum = Math.min(
     fwdBaseCurve.leastOuterOffset,
     bwdBaseCurve.leastOuterOffset,
   );
-  dedendum = Math.min(
+  let dedendum = Math.min(
     fwdBaseCurve.leastInnerOffset,
     bwdBaseCurve.leastInnerOffset,
   );
-  const addendumFn = generateAdendumFn(pitchCurve, addendum);
-  const dedendumFn = generateAdendumFn(pitchCurve, -dedendum);
-  const polyAddendum: PolygonalLoop = createPolygonalLoop(
+  let addendumFn = generateAdendumFn(pitchCurve, addendum);
+  let dedendumFn = generateAdendumFn(pitchCurve, -dedendum);
+  let polyAddendum: PolygonalLoop = createPolygonalLoop(
     discretizePolarParamaterization(addendumFn, renderFidelity),
   );
-  const polyDedendum = createPolygonalLoop(
+  let polyDedendum = createPolygonalLoop(
     discretizePolarParamaterization(dedendumFn, renderFidelity),
   );
   const toothRoots = generateToothRoots(
     numTeeth,
     pitchCurve.fidelicDiscreteLoop,
   );
-  const toothFlankPairs = generateToothFlanks(
+  /*const toothFlankPairs = generateToothFlanks(
     toothRoots,
     pitchCurve,
     fwdBaseCurve,
     bwdBaseCurve,
   );
   const fwdFlanks = toothFlankPairs.map((pair) => pair.fwdFlank);
-  const bwdFlanks = toothFlankPairs.map((pair) => pair.bwdFlank);
-
+  const bwdFlanks = toothFlankPairs.map((pair) => pair.bwdFlank);*/
   const syncConjugateAngle = (angle: number) => {
     const mate = gear.conjugate;
     if (!mate) return;
@@ -378,7 +374,6 @@ export const createGearFromPolarParam = (
       angle,
     );
   };
-
   const gear: Gear = {
     pitchCurve,
     fwdBaseCurve,
@@ -387,7 +382,6 @@ export const createGearFromPolarParam = (
     numTeeth,
     addendum,
     dedendum,
-    addendumFn,
     polyAddendum,
     polyDedendum,
     fidelity,
@@ -396,8 +390,8 @@ export const createGearFromPolarParam = (
     orientation,
     conjugate: null,
     toothRoots,
-    fwdFlanks,
-    bwdFlanks,
+    fwdFlanks: [],
+    bwdFlanks: [],
     getDirection: () => orientation.rotation,
     setDirection: (angle: number) => {
       orientation.rotation = angle;
@@ -450,6 +444,42 @@ const conjugateAngleFromThetaMaps = (
   );
 };
 
+const generateToothFlanksDuringConjugateGen = (gear: Gear) => {
+  const { toothRoots, pitchCurve, fwdBaseCurve, bwdBaseCurve } = gear;
+  const toothFlankPairs = generateToothFlanks(
+    toothRoots,
+    pitchCurve,
+    fwdBaseCurve,
+    bwdBaseCurve,
+  );
+  const fwdFlanks = toothFlankPairs.map((pair) => pair.fwdFlank);
+  const bwdFlanks = toothFlankPairs.map((pair) => pair.bwdFlank);
+  return { fwdFlanks, bwdFlanks };
+};
+
+const updateDendums = (gear: Gear, addendum: number, dedendum: number) => {
+  const addendumFn = generateAdendumFn(gear.pitchCurve, addendum); //addendum);
+  const dedendumFn = generateAdendumFn(gear.pitchCurve, -dedendum); //-dedendum);
+  const polyAddendum: PolygonalLoop = createPolygonalLoop(
+    discretizePolarParamaterization(addendumFn, gear.renderFidelity),
+  );
+  const polyDedendum = createPolygonalLoop(
+    discretizePolarParamaterization(dedendumFn, gear.renderFidelity),
+  );
+  gear.addendum = addendum;
+  gear.dedendum = dedendum;
+  gear.polyAddendum = polyAddendum;
+  gear.polyDedendum = polyDedendum;
+};
+
+const generateDendumsDuringConjugateGen = (gearA: Gear, gearB: Gear) => {
+  const addendumA = Math.min(gearA.addendum, gearB.addendum); // this would need to change
+  const addendumB = Math.min(gearA.dedendum, gearB.dedendum); // this would need to change
+  updateDendums(gearA, addendumA, addendumB);
+  // this should be fixed but i am lazy. it has to do with how baseCurve selects the minimum. i'd need to add a pitch curve cw /ccw detector
+  updateDendums(gearB, addendumA, addendumB);
+};
+
 export const createConjugateGear = (gearA: Gear): Gear => {
   const L = findConjugateCenterDistance(gearA.pitchCurve);
   const conjPitch = createConjugatePitchCurve(gearA.pitchCurve, L);
@@ -458,8 +488,6 @@ export const createConjugateGear = (gearA: Gear): Gear => {
     conjPitch.polarParamaterization,
     gearA.pressureAngle,
     gearA.numTeeth,
-    gearA.addendum,
-    gearA.dedendum,
     conjPitch.fidelity,
     conjPitch.renderFidelity,
     createOrientation({ x: centerA.x + L, y: centerA.y }, 0, false),
@@ -467,5 +495,14 @@ export const createConjugateGear = (gearA: Gear): Gear => {
   gearB.pitchCurve.angleSyncMap = conjPitch.angleSyncMap;
   gearA.conjugate = gearB;
   gearB.conjugate = gearA;
+  generateDendumsDuringConjugateGen(gearA, gearB);
+  const { fwdFlanks: fwdFlanksA, bwdFlanks: bwdFlanksA } =
+    generateToothFlanksDuringConjugateGen(gearA);
+  const { fwdFlanks: fwdFlanksB, bwdFlanks: bwdFlanksB } =
+    generateToothFlanksDuringConjugateGen(gearB);
+  gearA.fwdFlanks = fwdFlanksA;
+  gearA.bwdFlanks = bwdFlanksA;
+  gearB.fwdFlanks = fwdFlanksB;
+  gearB.bwdFlanks = bwdFlanksB;
   return gearB;
 };
