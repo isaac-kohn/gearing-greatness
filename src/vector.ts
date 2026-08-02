@@ -169,6 +169,17 @@ export const lineIntersection = (lineA: Line, lineB: Line): Vector2d | null => {
   return add(lineB.v0, scale(directionB, u));
 };
 
+// from this wikipedia article: https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Another_vector_formulation
+export const pointLineDistance = (line: Line, point: Vector2d): number => {
+  const lineDirection = sub(line.v1, line.v0);
+  const len = magnitude(lineDirection);
+  if (len === 0) {
+    return distance(point, line.v0);
+  }
+  const v0ToPoint = sub(point, line.v0);
+  return Math.abs(cross(lineDirection, v0ToPoint)) / len;
+};
+
 // which side of the line is the vertex on
 export const vertexLineHandedness = (line: Line, vertex: Vector2d): number => {
   const { v0, v1 } = line;

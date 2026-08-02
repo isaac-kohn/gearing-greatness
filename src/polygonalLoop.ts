@@ -30,7 +30,9 @@ const cumulativeLengthsOfVertexPath = (
   const totalLength =
     cumulativeLengths[cumulativeLengths.length - 1] +
     distance(vertices[vertices.length - 1], vertices[0]);
-  console.log(totalLength);
+  const testLength1 = cumulativeLengths[cumulativeLengths.length - 1];
+  const testLength2 = distance(vertices[vertices.length - 1], vertices[0]);
+  console.log(totalLength, testLength1, testLength2, vertices);
   return { cumulativeLengths, totalLength };
 };
 

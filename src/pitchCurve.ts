@@ -130,34 +130,6 @@ export const createConjugatePitchCurve = (
     alphaArray.push(alpha);
     polarArrayB.push({ mag: magB, angle: Math.PI - beta });
   }
-
-  /*const maxDom = pitchCurveA.polarParamaterization.domainMax;
-  const minDom = pitchCurveA.polarParamaterization.domainMin;
-  const polarArrayB: PolarVector[] = [];
-  const alphaArray: number[] = [];
-  const firstPolarA = pitchCurveA.polarParamaterization.fn(minDom);
-  let alpha = firstPolarA.angle;
-  let theta = -alpha;
-  let prevTheta = theta;
-  let beta = 0;
-  alphaArray.push(alpha);
-  polarArrayB.push({ angle: beta, mag: L - firstPolarA.mag });
-  polarArrayB.push({ angle: theta, mag: L - firstPolarA.mag });
-  for (let i = 1; i < fidelity; i++) {
-    const u = minDom + (i * (maxDom - minDom)) / fidelity;
-    const polarA = pitchCurveA.polarParamaterization.fn(u);
-    alpha = polarA.angle;
-    prevTheta = theta;
-    theta = -alpha;
-    const deltaTheta = theta - prevTheta;
-    const magA = polarA.mag;
-    const magB = L - magA;
-    beta += -(deltaTheta * magA) / magB;
-    polarArrayB.push({ angle: beta, mag: magB });
-    alphaArray.push(alpha);
-  }
-  const betaArray = polarArrayB.map((polar) => polar.angle);
-  pitchCurveA.thetaMap = alphaArray;*/
   pitchCurveA.angleSyncMap = alphaArray;
   const polarParamB: PolarParamaterization =
     discretePolarArrayToPolarParameterization(polarArrayB);

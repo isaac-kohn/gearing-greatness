@@ -21,6 +21,7 @@ import {
   normalizeAngle,
   normalizeVector,
   perp,
+  pointLineDistance,
   polarToVertex,
   scale,
   setMagnitude,
@@ -135,13 +136,11 @@ const generateToothRoots = (
   for (let i = 0; i < numToothRoots; i++) {
     const targetLength = i * toothSpacing;
     const targetIndex =
-      fidelicDiscreteLoop.findIndexOfCumulativeLength(targetLength) % 1000;
-    //console.log(targetIndex);
+      fidelicDiscreteLoop.findIndexOfCumulativeLength(targetLength);
     const toothRootVertex = fidelicDiscreteLoop.vertices[targetIndex];
     const tangentVector: Vector2d =
       fidelicDiscreteLoop.tangentAtIndex(targetIndex);
     const normalVector = perp(tangentVector);
-    //console.log(toothRootVertex);
     const normalLine: Line = {
       v0: toothRootVertex,
       v1: add(toothRootVertex, normalVector),
@@ -164,12 +163,12 @@ const generateFlankSegments = (
 ): Vector2d[][] => {
   const numRoots = toothRoots.length;
   const numTeeth = toothRoots.length / ROOTSPERTOOTH;
-  const rootRootIndices = Array.from(
+  const flankRootIndices = Array.from(
     { length: numTeeth },
     (_, i) => i * ROOTSPERTOOTH,
   );
   if (flankDirection === 1)
-    rootRootIndices.forEach((_, i) => (rootRootIndices[i] += 2));
+    flankRootIndices.forEach((_, i) => (flankRootIndices[i] += 2));
   const pitchPolars = pitchCurve.fidelicDiscreteLoop.polarVectors;
   const fidelity = pitchPolars.length;
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
@@ -188,10 +187,10 @@ const generateFlankSegments = (
     ...overflowLengths,
   ];
   //if (turningDirection === -1) baseLengths[0] = totalLength;
-  for (const rootRootIndex of rootRootIndices) {
-    const toothRoot = toothRoots[rootRootIndex];
+  for (const flankRootIndex of flankRootIndices) {
+    const flankRoot = toothRoots[flankRootIndex];
     // terrible naming lol, but i needed smth to differentiate the index of the root in the toothroots array vs in the fidelicloop array
-    const rootFidelicIndex = toothRoot.index;
+    const rootFidelicIndex = flankRoot.index;
     let prevVertex: Vector2d = { ...pitchVertices[rootFidelicIndex] };
     flankSegments.push([]);
     let whileLoopCount = 0;
@@ -231,11 +230,19 @@ const generateFlankSegments = (
       if (unwrapLength < 0) {
         break;
       }
+      // non-monotonicity viewing root normal as x-axis break condition
+      const distToRootNormal = pointLineDistance(flankRoot.normalLine, vertex);
+      const prevDistToRootNormal = pointLineDistance(
+        flankRoot.normalLine,
+        prevVertex,
+      );
+      if (distToRootNormal < prevDistToRootNormal) break;
       // boundary line intersection break condition
       const nextRootRootIndex =
-        (((rootRootIndex + turningDirection) % numRoots) + numRoots) % numRoots;
+        (((flankRootIndex + turningDirection) % numRoots) + numRoots) %
+        numRoots;
       const nextRoot = toothRoots[nextRootRootIndex];
-      const thisRoot = toothRoots[rootRootIndex];
+      const thisRoot = toothRoots[flankRootIndex];
       const nextLineCrossed =
         vertexLineHandedness(nextRoot.normalLine, vertex) * -turningDirection >
         0;
@@ -393,8 +400,8 @@ export const createGearFromPolarParam = (
     bwdFlanks,
     getDirection: () => orientation.rotation,
     setDirection: (angle: number) => {
-      angle = normalizeAngle(angle);
       orientation.rotation = angle;
+      angle = normalizeAngle(-angle);
       syncConjugateAngle(angle);
     },
     setDirectionIndividually: (angle: number) => {
@@ -438,7 +445,9 @@ const conjugateAngleFromThetaMaps = (
   let nextAngle = driveMap[nextIndex];
   const decimalIndex = baseIndex + angleOvershoot / (nextAngle - baseAngle);
   const lerpRatio = decimalIndex - baseIndex;
-  return mateMap[baseIndex]; //+ lerpRatio * (mateMap[nextIndex] - mateMap[baseIndex])
+  return (
+    mateMap[baseIndex] + lerpRatio * (mateMap[nextIndex] - mateMap[baseIndex])
+  );
 };
 
 export const createConjugateGear = (gearA: Gear): Gear => {

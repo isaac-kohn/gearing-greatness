@@ -35,9 +35,13 @@ export const createBaseCurve = (
   pressureAngle: number,
 ): BaseCurve => {
   const renderFidelity = pitchCurve.renderFidelity;
+  const fidelity = pitchCurve.fidelity;
   const pitchVertices = pitchCurve.fidelicDiscreteLoop.vertices;
   const curvatureSignMap: (-1 | 1 | 0)[] = [];
   const zeroCurvatureAtRadiusThreshold = 2 * pitchCurve.averageRadius;
+  let prevCurvature = pitchCurve.fidelicDiscreteLoop.curvatureAtIndex(
+    fidelity - 1,
+  );
   let leastInnerOffset = Infinity;
   let leastOuterOffset = Infinity;
   const baseCurveVertices: Vector2d[] = pitchVertices.map((vertex, i) => {
@@ -52,13 +56,18 @@ export const createBaseCurve = (
             : 0;
     curvatureSignMap.push(curvatureSign);
     const tang = tangentAtIndexOfVertexArray(pitchVertices, i);
-    const pitchRadius = curvature === 0 ? NaN : 1 / curvature;
+    const lastCurvatureSign = Math.sign(prevCurvature);
+    const pitchRadius =
+      curvature === 0 ? 100000000000 * lastCurvatureSign : 1 / curvature;
+    prevCurvature = curvature;
+    const baseRadius = pitchRadius * Math.cos(pressureAngle);
     const offsetMag = pitchRadius * Math.sin(pressureAngle);
-    const absMag = Math.abs(offsetMag);
-    if (curvatureSign === -1 && absMag < leastOuterOffset) {
-      leastOuterOffset = absMag;
-    } else if (curvatureSign === 1 && absMag < leastInnerOffset) {
-      leastInnerOffset = absMag;
+    const undercut = pitchRadius - baseRadius;
+    const absUndercut = Math.abs(undercut);
+    if (curvatureSign === -1 && absUndercut < leastOuterOffset) {
+      leastOuterOffset = absUndercut;
+    } else if (curvatureSign === 1 && absUndercut < leastInnerOffset) {
+      leastInnerOffset = absUndercut;
     }
     const offsetDir = normalizeAngle(getAngle(tang)) + pressureAngle;
     const polarOffset: PolarVector = { mag: offsetMag, angle: offsetDir };
