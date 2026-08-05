@@ -2,10 +2,15 @@ import "./style.css";
 
 import { drawGear } from "./drawGeometry";
 import { createConjugateGear, createGearFromPolarParam } from "./gear";
+import { createThreeView } from "./threeBoilerPlate";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
 document.body.append(canvas);
+
+const threeCanvas = createThreeView();
+document.body.append(threeCanvas);
+threeCanvas.style.display = "none";
 
 const context = canvas.getContext("2d");
 
@@ -40,14 +45,11 @@ resizeCanvas();
 const gearA = createGearFromPolarParam(
   {
     fn: (u) => {
-      //return { mag: 150 - 50 * Math.cos(3 * u), angle: u };
+      //return { mag: 150 - 0 * Math.cos(4 * u), angle: u };
       // fix the tooth normal so that it exists for vertical lines
       return {
         mag:
-          150 -
-          40 * Math.cos(4 * u) -
-          5 * Math.sin(5 * u) +
-          50 * Math.sin(4 * u),
+          150 - 5 * Math.cos(4 * u) - 5 * Math.sin(5 * u) + 5 * Math.sin(8 * u),
         angle: u,
       };
       return {
@@ -58,9 +60,9 @@ const gearA = createGearFromPolarParam(
     domainMax: 2 * Math.PI,
     domainMin: 0,
   },
-  30,
+  (25 * Math.PI) / 180,
   40,
-  3000,
+  5000,
   100,
 );
 
@@ -86,7 +88,7 @@ function draw(timeMs: number) {
   context.strokeStyle = "#000";
   context.lineWidth = 2;
   context.fillStyle = "#0ff";
-  gearA.setDirection(timeSeconds * 0.4 + Math.cos(timeSeconds));
+  gearA.setDirection(timeSeconds * 0.2); // + Math.cos(timeSeconds));
   drawGear(context, gearA, Math.floor(timeSeconds * 60 * 0.2));
   drawGear(context, gearB, 1);
   /*drawCircleOfBestFitAtLoopIndex(

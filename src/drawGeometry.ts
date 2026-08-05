@@ -8,6 +8,7 @@ import {
   normalizeVector,
   rotate,
   scale,
+  setMagnitude,
   sub,
   toWorld,
   type Line,
@@ -90,32 +91,53 @@ export const drawPitchCurve = (
 
 const drawToothRoots = (context: CanvasRenderingContext2D, gear: Gear) => {
   const orientation = gear.orientation;
-  for (const toothRoot of gear.toothRoots) {
+  gear.toothRoots.forEach((toothRoot, i) => {
+    const flip = gear.isConjugate ? -1 : 1;
+    const { v0, v1 } = toothRoot.normalLine;
     drawPoint(context, toWorld(toothRoot.vertex, orientation), {
       radius: 1,
     });
     drawLine(
       context,
       {
-        v0: toWorld(toothRoot.normalLine.v0, orientation),
-        v1: toWorld(toothRoot.normalLine.v1, orientation),
+        v0: toWorld(v0, orientation),
+        v1: toWorld(v1, orientation),
       },
       {
         extendLength: 20,
         color: "orange",
+        lineWidth: 0.5,
       },
     );
-  }
+    // bounds
+    const limitNumOut = gear.approximateOuterDendums[i];
+    const limitPointOut = add(v0, setMagnitude(sub(v1, v0), limitNumOut));
+    drawPoint(context, toWorld(limitPointOut, orientation), {
+      radius: 1,
+      color: "green",
+    });
+    const limitNumIn = gear.approximateInnerDendums[i];
+    const limitPointIn = add(v0, setMagnitude(sub(v1, v0), limitNumIn));
+    drawPoint(context, toWorld(limitPointIn, orientation), {
+      radius: 1,
+      color: "green",
+    });
+  });
 };
 
 const drawToothFlanks = (
   context: CanvasRenderingContext2D,
   gear: Gear,
-  style?: { color?: string | CanvasGradient | CanvasPattern },
+  style?: {
+    color?: string | CanvasGradient | CanvasPattern;
+    lineWidth?: number;
+  },
 ) => {
+  const lineWidth = style?.lineWidth || 0.5;
   const color = style?.color || "blue";
   const orientation = gear.orientation;
   context.strokeStyle = color;
+  context.lineWidth = lineWidth;
   for (const toothFlank of gear.fwdFlanks) {
     drawPolygonalChain(context, toothFlank.tip, orientation);
     drawPolygonalChain(context, toothFlank.base, orientation);
@@ -138,8 +160,8 @@ export const drawGear = (
     index = ((index % fidelity) + fidelity) % fidelity;
   }
   drawPolygonalLoop(context, gear.pitchCurve.renderedDiscreteLoop, orientation);
-  context.lineWidth = 0.5;
-  /*drawPolygonalLoop(
+  context.lineWidth = 0.5; /*
+  drawPolygonalLoop(
     context,
     gear.bwdBaseCurve.renderedDiscreteLoop,
     orientation,
@@ -175,10 +197,8 @@ export const drawGear = (
     context.lineTo(v1.x, v1.y);
     context.stroke();
   }*/
-  //drawPolygonalLoop(context, gear.polyAddendum, fill, stroke, displayCenter);
-  //drawPolygonalLoop(context, gear.polyDedendum);
-  drawPolygonalLoop(context, gear.polyAddendum, orientation);
-  drawPolygonalLoop(context, gear.polyDedendum, orientation);
+  //drawPolygonalLoop(context, gear.polyAddendum, orientation);
+  //drawPolygonalLoop(context, gear.polyDedendum, orientation);
   drawToothRoots(context, gear);
   drawToothFlanks(context, gear);
 };

@@ -54,9 +54,11 @@ export interface Gear {
   dedendum: number;
   // the t such that pitchCurve.fn(t) gives the point at which each tooth intersects the pitch curve
   toothRoots: ToothRoot[];
+  // I wasn't sure exactly how to define the dendums, so instead i take the minimum undercut at each tooth flank
+  approximateOuterDendums: number[];
+  approximateInnerDendums: number[];
   fwdFlanks: ToothFlank[];
   bwdFlanks: ToothFlank[];
-  // like for pitch curve, the polygonal loops are used for rendering, while the paramaterizations are used for high fidelity geometry computation
   polyAddendum: PolygonalLoop;
   polyDedendum: PolygonalLoop;
   fwdBaseCurve: BaseCurve;
@@ -67,6 +69,7 @@ export interface Gear {
   orientation: Orientation;
   // single conjugate partner, if any
   conjugate: Gear | null;
+  isConjugate: true | false;
   setDirection: (angle: number) => void;
   setDirectionIndividually: (angle: number) => void;
   getDirection: () => number;
@@ -155,6 +158,7 @@ const generateToothRoots = (
 
 const generateFlankSegments = (
   toothRoots: ToothRoot[],
+  approximateDendums: number[],
   pitchCurve: PitchCurve,
   baseCurve: BaseCurve,
   turningDirection: 1 | -1,
@@ -225,7 +229,7 @@ const generateFlankSegments = (
         break;
       }
       whileLoopCount++;
-      // undercutting break condition
+      // true undercutting break condition
       if (unwrapLength < 0) {
         break;
       }
@@ -236,7 +240,7 @@ const generateFlankSegments = (
         prevVertex,
       );
       if (distToRootNormal < prevDistToRootNormal) break;
-      // boundary line intersection break condition
+      // normal line intersection break condition
       const nextRootRootIndex =
         (((flankRootIndex + turningDirection) % numRoots) + numRoots) %
         numRoots;
@@ -249,6 +253,38 @@ const generateFlankSegments = (
         vertexLineHandedness(thisRoot.normalLine, vertex) * turningDirection >
         0;
       if (whileLoopCount > 1 && (thisLineCrossed || nextLineCrossed)) break;
+      // dendum crossing break condition
+      const vertexOnScaledNormalLine = (normalLine: Line, scalar: number) => {
+        const { v0, v1 } = normalLine;
+        const newV1 = add(v0, scale(sub(v1, v0), scalar));
+        return newV1;
+      };
+      const thisDendumLength = approximateDendums[flankRootIndex];
+      const nextDendumLength = approximateDendums[nextRootRootIndex];
+      const dendumV0 = vertexOnScaledNormalLine(
+        thisRoot.normalLine,
+        thisDendumLength,
+      );
+      const dendumV1 = vertexOnScaledNormalLine(
+        nextRoot.normalLine,
+        nextDendumLength,
+      );
+      const dendumBoundaryLine: Line = { v0: dendumV0, v1: dendumV1 };
+      const dendumSign = Math.sign(thisDendumLength);
+      const dendumLineCrossed =
+        vertexLineHandedness(dendumBoundaryLine, vertex) *
+          turningDirection *
+          dendumSign >
+        0;
+      /*if (whileLoopCount > 5) {
+        vertex.x = dendumV0.x;
+        vertex.y = dendumV0.y;
+      }
+      if (whileLoopCount > 6) {
+        vertex.x = dendumV1.x;
+        vertex.y = dendumV1.y;
+      }*/
+      if (whileLoopCount > 1 && dendumLineCrossed) break;
       // all breaks passed, vertex can be added.
       flankSegments[flankSegments.length - 1].push(vertex);
       prevVertex = vertex;
@@ -260,12 +296,15 @@ const generateFlankSegments = (
 
 const generateToothFlanks = (
   toothRoots: ToothRoot[],
+  approximateOuterDendums: number[],
+  approximateInnerDendums: number[],
   pitchCurve: PitchCurve,
   fwdBaseCurve: BaseCurve,
   bwdBaseCurve: BaseCurve,
 ): { fwdFlank: ToothFlank; bwdFlank: ToothFlank }[] => {
   const fwdFlankTips = generateFlankSegments(
     toothRoots,
+    approximateOuterDendums,
     pitchCurve,
     fwdBaseCurve,
     1,
@@ -273,6 +312,7 @@ const generateToothFlanks = (
   );
   const fwdFlankBases = generateFlankSegments(
     toothRoots,
+    approximateInnerDendums,
     pitchCurve,
     fwdBaseCurve,
     -1,
@@ -280,16 +320,18 @@ const generateToothFlanks = (
   );
   const bwdFlankTips = generateFlankSegments(
     toothRoots,
+    approximateOuterDendums,
     pitchCurve,
     bwdBaseCurve,
-    1,
+    -1,
     -1,
   );
   const bwdFlankBases = generateFlankSegments(
     toothRoots,
+    approximateInnerDendums,
     pitchCurve,
     bwdBaseCurve,
-    -1,
+    1,
     -1,
   );
   const toothFlankPairs = toothRoots.map((root, index) => {
@@ -326,14 +368,8 @@ export const createGearFromPolarParam = (
     fidelity,
     renderFidelity,
   );
-  const fwdBaseCurve = createBaseCurve(
-    pitchCurve,
-    (pressureAngle * Math.PI) / 180,
-  );
-  const bwdBaseCurve = createBaseCurve(
-    pitchCurve,
-    -(pressureAngle * Math.PI) / 180,
-  );
+  const fwdBaseCurve = createBaseCurve(pitchCurve, pressureAngle, numTeeth);
+  const bwdBaseCurve = createBaseCurve(pitchCurve, -pressureAngle, numTeeth);
   let addendum = Math.min(
     fwdBaseCurve.leastOuterOffset,
     bwdBaseCurve.leastOuterOffset,
@@ -390,8 +426,11 @@ export const createGearFromPolarParam = (
     orientation,
     conjugate: null,
     toothRoots,
+    approximateInnerDendums: [],
+    approximateOuterDendums: [],
     fwdFlanks: [],
     bwdFlanks: [],
+    isConjugate: false,
     getDirection: () => orientation.rotation,
     setDirection: (angle: number) => {
       orientation.rotation = angle;
@@ -448,6 +487,8 @@ const generateToothFlanksDuringConjugateGen = (gear: Gear) => {
   const { toothRoots, pitchCurve, fwdBaseCurve, bwdBaseCurve } = gear;
   const toothFlankPairs = generateToothFlanks(
     toothRoots,
+    gear.approximateOuterDendums,
+    gear.approximateInnerDendums,
     pitchCurve,
     fwdBaseCurve,
     bwdBaseCurve,
@@ -480,6 +521,76 @@ const generateDendumsDuringConjugateGen = (gearA: Gear, gearB: Gear) => {
   updateDendums(gearB, addendumA, addendumB);
 };
 
+// this function essentially goes through the undercutting limits and finds the min cutoff between each tooth root,
+const generateApproximateUndercutLinesDuringConjugateGen = (
+  gearA: Gear,
+  gearB: Gear,
+) => {
+  const fidelity = gearA.fidelity;
+  const undercutsA = gearA.fwdBaseCurve.underCuttingLengths;
+  const undercutsB = gearB.fwdBaseCurve.underCuttingLengths;
+  // this will be the same length as the tooth roots array
+  const minInnerBetweenRootsA: number[] = [];
+  const minInnerBetweenRootsB: number[] = [];
+  const toothRoots = gearA.toothRoots.map((root, i) => {
+    return { rootA: root, rootB: gearB.toothRoots[i] };
+  });
+  const numToothRoots = toothRoots.length;
+  toothRoots.forEach((toothRoot, j) => {
+    const { rootA, rootB } = toothRoot;
+    const toothRootArrayNextIndex =
+      (((j + 1) % numToothRoots) + numToothRoots) % numToothRoots;
+    const nextRootA = toothRoots[toothRootArrayNextIndex].rootA;
+    const fidelicStartIndex = ((rootA.index % fidelity) + fidelity) % fidelity;
+    const haltingFidelicIndex =
+      ((nextRootA.index % fidelity) + fidelity) % fidelity;
+    let count = 0;
+    const pitchCurveCircum = gearA.pitchCurve.fidelicDiscreteLoop.totalLength;
+    const numTeeth = gearA.numTeeth;
+    const heightOfStraightRackTooth =
+      Math.abs(Math.tan(Math.PI / 2 - gearA.pressureAngle)) *
+      (pitchCurveCircum / (numTeeth * 4));
+    let minInnerA = heightOfStraightRackTooth;
+    let minInnerB = heightOfStraightRackTooth;
+    while (true) {
+      const fidelicIndex =
+        (((fidelicStartIndex + count) % fidelity) + fidelity) % fidelity;
+      const curvatureSignA =
+        gearA.pitchCurve.fidelicDiscreteLoop.curvatureAtIndex(fidelicIndex);
+      const curvatureSignB =
+        -gearB.pitchCurve.fidelicDiscreteLoop.curvatureAtIndex(fidelicIndex);
+      if (curvatureSignA >= 0) {
+        minInnerA = Math.min(minInnerA, undercutsA[fidelicIndex]);
+      }
+      if (curvatureSignB >= 0) {
+        minInnerB = Math.min(minInnerB, undercutsB[fidelicIndex]);
+      }
+      if (fidelicIndex === haltingFidelicIndex) break;
+      if (count > fidelity) {
+        console.warn(
+          "There is something very wrong in undercutting limit generation",
+        );
+        break;
+      }
+      count++;
+    } /*
+    const curvatureSignA =
+      gearA.pitchCurve.fidelicDiscreteLoop.curvatureAtIndex(fidelicStartIndex);
+    const curvatureSignB =
+      gearB.pitchCurve.fidelicDiscreteLoop.curvatureAtIndex(fidelicStartIndex);*/
+    minInnerBetweenRootsA.push(minInnerA);
+    minInnerBetweenRootsB.push(minInnerB);
+  });
+  // lmfao this is so fing stupid the names inner and outer are meaningless but it works
+  // dont judge i was on a time crunch
+  gearA.approximateInnerDendums = minInnerBetweenRootsA;
+  gearB.approximateOuterDendums = minInnerBetweenRootsB.map((val) => -val);
+  const outerA = minInnerBetweenRootsB.map((val) => -val);
+  const outerB = minInnerBetweenRootsA.map((val) => val);
+  gearA.approximateOuterDendums = outerA;
+  gearB.approximateInnerDendums = outerB;
+};
+
 export const createConjugateGear = (gearA: Gear): Gear => {
   const L = findConjugateCenterDistance(gearA.pitchCurve);
   const conjPitch = createConjugatePitchCurve(gearA.pitchCurve, L);
@@ -492,9 +603,13 @@ export const createConjugateGear = (gearA: Gear): Gear => {
     conjPitch.renderFidelity,
     createOrientation({ x: centerA.x + L, y: centerA.y }, 0, false),
   );
+  gearB.isConjugate = true;
   gearB.pitchCurve.angleSyncMap = conjPitch.angleSyncMap;
   gearA.conjugate = gearB;
   gearB.conjugate = gearA;
+  const underCutLengthsAtToothRoots =
+    generateApproximateUndercutLinesDuringConjugateGen(gearA, gearB);
+  console.log("undercuts: ", underCutLengthsAtToothRoots);
   generateDendumsDuringConjugateGen(gearA, gearB);
   const { fwdFlanks: fwdFlanksA, bwdFlanks: bwdFlanksA } =
     generateToothFlanksDuringConjugateGen(gearA);
