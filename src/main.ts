@@ -45,6 +45,10 @@ function resizeCanvas() {
   canvas.style.width = `${WIDTH}px`;
   canvas.style.height = `${HEIGHT}px`;
 
+  if (!context) {
+    throw new Error("Could not get 2D context");
+  }
+
   context.setTransform(1, 0, 0, 1, 0, 0);
 
   context.scale(pixelRatio, pixelRatio);
@@ -96,6 +100,10 @@ threeCanvas.addPolygon(polygonGearB, [gearA.centerBore], 50);
 
 function draw(timeMs: number) {
   const timeSeconds = timeMs / 1000;
+
+  if (!context) {
+    throw new Error("Could not get 2D context");
+  }
 
   // clear canvas by drawing a big rect over everything
   context.fillStyle = "#eee";

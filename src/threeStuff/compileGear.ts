@@ -29,14 +29,14 @@ export const compileGearToPolygon = (gear: Gear): Vector2d[] => {
   return polygon;
 };
 
-import * as THREE from "three";
+import { Mesh, Shape, Path, ExtrudeGeometry, MeshBasicMaterial } from "three";
 
 export const polygonToExtrudedMesh = (
   outer: Vector2d[],
   holes: Vector2d[][],
   height: number,
-): THREE.Mesh => {
-  const shape = new THREE.Shape();
+): Mesh => {
+  const shape = new Shape();
 
   shape.moveTo(outer[0].x, outer[0].y);
   for (let i = 1; i < outer.length; i++) {
@@ -45,7 +45,7 @@ export const polygonToExtrudedMesh = (
   shape.closePath();
 
   for (const points of holes) {
-    const hole = new THREE.Path();
+    const hole = new Path();
     hole.moveTo(points[0].x, points[0].y);
     for (let i = 1; i < points.length; i++) {
       hole.lineTo(points[i].x, points[i].y);
@@ -54,11 +54,11 @@ export const polygonToExtrudedMesh = (
     shape.holes.push(hole);
   }
 
-  const geometry = new THREE.ExtrudeGeometry(shape, {
+  const geometry = new ExtrudeGeometry(shape, {
     depth: height,
     bevelEnabled: false,
   });
 
-  const material = new THREE.MeshBasicMaterial();
-  return new THREE.Mesh(geometry, material);
+  const material = new MeshBasicMaterial();
+  return new Mesh(geometry, material);
 };

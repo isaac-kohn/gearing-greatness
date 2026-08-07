@@ -1,8 +1,8 @@
-import * as THREE from "three";
+import { Scene, PerspectiveCamera, WebGLRenderer } from "three";
+import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
 
 import { polygonToExtrudedMesh } from "./compileGear";
 import type { Vector2d } from "../generate/vector";
-import { STLExporter } from "three/examples/jsm/Addons.js";
 
 export interface ThreeWindow {
   element: HTMLDivElement;
@@ -17,12 +17,12 @@ export interface ThreeWindow {
 export function createThreeWindow(): ThreeWindow {
   const element = document.createElement("div");
 
-  const scene = new THREE.Scene();
+  const scene = new Scene();
 
-  const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+  const camera = new PerspectiveCamera(75, 1, 0.1, 1000);
   camera.position.z = 500;
 
-  const renderer = new THREE.WebGLRenderer();
+  const renderer = new WebGLRenderer();
   renderer.setSize(600, 400);
   element.appendChild(renderer.domElement);
 
