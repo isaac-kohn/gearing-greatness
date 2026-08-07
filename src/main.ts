@@ -32,6 +32,13 @@ if (!context) {
   throw new Error("Could not get 2D context");
 }
 
+let imageLoaded = false;
+const proboscisImg = new Image();
+proboscisImg.onload = () => {
+  imageLoaded = true; // Signals the draw loop that the asset is ready
+};
+proboscisImg.src = "/ProboscisFaceForStickFigure.png";
+
 // actual canvas width/height in "css pixels"
 const WIDTH = 800;
 const HEIGHT = 600;
@@ -109,13 +116,28 @@ function draw(timeMs: number) {
   context.fillStyle = "#eee";
   context.fillRect(-WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT);
 
+  // proboscis
+  if (imageLoaded) {
+    context.save();
+    // invert the y axis transformation so the image doesn't render upside down
+    // a negative y offset now moves the image up, not down.
+    context.scale(1, -1);
+    context.drawImage(
+      proboscisImg,
+      -proboscisImg.width / 2,
+      -proboscisImg.height / 2,
+    );
+
+    context.restore();
+  }
+
   context.strokeStyle = "#000";
   context.lineWidth = 2;
   context.fillStyle = "#0ff";
   gearA.setDirection(timeSeconds * 0.2); // + Math.cos(timeSeconds));
-  //drawGear(context, gearA, 1);
+  drawGear(context, gearA, 1);
   //drawGear(context, gearA, Math.floor(timeSeconds * 60 * 0.2));
-  //drawGear(context, gearB, 1);
+  drawGear(context, gearB, 1);
   /*drawCircleOfBestFitAtLoopIndex(
     context,
     gearA.pitchCurve.fidelicDiscreteLoop,
