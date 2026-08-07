@@ -1,4 +1,4 @@
-import type { Vector2d, PolarVector, Line } from "./vector";
+/*import type { Vector2d, PolarVector, Line } from "./vector";
 import {
   getAngle,
   distance,
@@ -207,7 +207,7 @@ export const createConjugateLoop = (
       anlgeB += speedRatio * rotationInterval;
       indexB = anlgeB / rotationInterval;
       indexA = getDecimalIndexFromAngle(loopA, angleA);
-    }*/
+    }
     //console.log(angleA);
     console.log(indexA);
   }
@@ -263,3 +263,4 @@ export const subdividePolygonalLoop = (
   newVertices.push(...interpolatedSegment);
   return createPolygonalLoopFromVertices(loop.center, newVertices);
 };
+*/

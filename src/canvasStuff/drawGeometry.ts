@@ -1,6 +1,6 @@
-import type { Gear } from "./gear";
-import type { PitchCurve } from "./pitchCurve";
-import { type PolygonalLoop } from "./polygonalLoop";
+import type { Gear } from "../generate/gear";
+import type { PitchCurve } from "../generate/pitchCurve";
+import { type PolygonalLoop } from "../generate/polygonalLoop";
 import {
   add,
   createOrientation,
@@ -14,7 +14,7 @@ import {
   type Line,
   type Orientation,
   type Vector2d,
-} from "./vector";
+} from "../generate/vector";
 
 export const drawPoint = (
   context: CanvasRenderingContext2D,
@@ -159,8 +159,9 @@ export const drawGear = (
     index = Math.floor(index);
     index = ((index % fidelity) + fidelity) % fidelity;
   }
-  drawPolygonalLoop(context, gear.pitchCurve.renderedDiscreteLoop, orientation);
-  context.lineWidth = 0.5; /*
+  //drawPolygonalLoop(context, gear.pitchCurve.renderedDiscreteLoop, orientation);
+  context.lineWidth = 0.5;
+  /*
   drawPolygonalLoop(
     context,
     gear.bwdBaseCurve.renderedDiscreteLoop,

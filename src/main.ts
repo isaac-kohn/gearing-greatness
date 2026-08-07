@@ -1,16 +1,30 @@
 import "./style.css";
 
-import { drawGear } from "./drawGeometry";
-import { createConjugateGear, createGearFromPolarParam } from "./gear";
-import { createThreeView } from "./threeBoilerPlate";
+import { drawGear, drawPolygonalChain } from "./canvasStuff/drawGeometry";
+import { createConjugateGear, createGearFromPolarParam } from "./generate/gear";
+import { createThreeWindow } from "./threeStuff/threeWindow";
+import {
+  compileGearToPolygon,
+  polygonToExtrudedMesh,
+} from "./threeStuff/compileGear";
 
 const canvas = document.createElement("canvas");
 canvas.style.border = "solid lightgrey";
 document.body.append(canvas);
+//canvas.style.display = "none";
 
-const threeCanvas = createThreeView();
-document.body.append(threeCanvas);
-threeCanvas.style.display = "none";
+const threeCanvas = createThreeWindow();
+document.body.append(threeCanvas.element);
+//threeCanvas.style.display = "none";
+
+const downloadButton = document.createElement("button");
+downloadButton.textContent = "Download STL";
+
+downloadButton.addEventListener("click", () => {
+  threeCanvas.downloadSTL();
+});
+
+document.body.append(downloadButton);
 
 const context = canvas.getContext("2d");
 
@@ -45,7 +59,7 @@ resizeCanvas();
 const gearA = createGearFromPolarParam(
   {
     fn: (u) => {
-      //return { mag: 150 - 0 * Math.cos(4 * u), angle: u };
+      return { mag: 150 - 7.5 * Math.cos(5 * u), angle: u };
       // fix the tooth normal so that it exists for vertical lines
       return {
         mag:
@@ -61,22 +75,24 @@ const gearA = createGearFromPolarParam(
     domainMin: 0,
   },
   (25 * Math.PI) / 180,
-  40,
-  5000,
+  35,
+  4000,
   100,
 );
 
 const gearB = createConjugateGear(gearA);
-// center the pair around the origin using the conjugate center distance
 {
   const centerA = gearA.getCenter();
   const centerB = gearB.getCenter();
   const midX = (centerA.x + centerB.x) / 2;
   gearA.setCenter({ x: centerA.x - midX, y: centerA.y });
   gearB.setCenter({ x: centerB.x - midX, y: centerB.y });
-  //gearA.setCenter({ x: centerB.x - midX, y: centerB.y });
-  //gearB.setCenter({ x: centerA.x - midX, y: centerA.y });
 }
+
+const polygonGearA = compileGearToPolygon(gearA);
+//threeCanvas.addPolygon(polygonGearA, [gearA.centerBore], 50);
+const polygonGearB = compileGearToPolygon(gearB);
+threeCanvas.addPolygon(polygonGearB, [gearA.centerBore], 50);
 
 function draw(timeMs: number) {
   const timeSeconds = timeMs / 1000;
@@ -89,14 +105,17 @@ function draw(timeMs: number) {
   context.lineWidth = 2;
   context.fillStyle = "#0ff";
   gearA.setDirection(timeSeconds * 0.2); // + Math.cos(timeSeconds));
-  drawGear(context, gearA, Math.floor(timeSeconds * 60 * 0.2));
-  drawGear(context, gearB, 1);
+  //drawGear(context, gearA, 1);
+  //drawGear(context, gearA, Math.floor(timeSeconds * 60 * 0.2));
+  //drawGear(context, gearB, 1);
   /*drawCircleOfBestFitAtLoopIndex(
     context,
     gearA.pitchCurve.fidelicDiscreteLoop,
     timeSeconds * 60 * 0.2,
     -(30 * Math.PI) / 180,
   );*/
+  drawPolygonalChain(context, polygonGearA, gearA.orientation);
+  drawPolygonalChain(context, polygonGearB, gearB.orientation);
 }
 draw(0);
 

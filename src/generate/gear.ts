@@ -6,6 +6,7 @@ import {
   tangentAtIndexOfVertexArray,
   type PolarParamaterization,
 } from "./calc";
+import { crossHole } from "./crossHoleShape";
 import {
   createConjugatePitchCurve,
   createPitchCurveFromPolarParam,
@@ -17,6 +18,7 @@ import {
   add,
   createOrientation,
   distance,
+  dot,
   getAngle,
   normalizeAngle,
   normalizeVector,
@@ -35,13 +37,16 @@ import {
 } from "./vector";
 
 export interface ToothRoot {
-  index: number;
+  fidelicIndex: number;
+  rootArrayIndex: number;
   vertex: Vector2d;
   normalLine: Line;
 }
 
 export interface ToothFlank {
   root: ToothRoot;
+  pointingRoot: ToothRoot;
+  dippingRoot: ToothRoot;
   tip: Vector2d[];
   base: Vector2d[];
 }
@@ -52,6 +57,7 @@ export interface Gear {
   numTeeth: number;
   addendum: number;
   dedendum: number;
+  centerBore: Vector2d[];
   // the t such that pitchCurve.fn(t) gives the point at which each tooth intersects the pitch curve
   toothRoots: ToothRoot[];
   // I wasn't sure exactly how to define the dendums, so instead i take the minimum undercut at each tooth flank
@@ -148,9 +154,10 @@ const generateToothRoots = (
       v1: add(toothRootVertex, normalVector),
     };
     toothRoots.push({
-      index: targetIndex,
+      fidelicIndex: targetIndex,
       vertex: toothRootVertex,
       normalLine,
+      rootArrayIndex: i,
     });
   }
   return toothRoots;
@@ -193,7 +200,7 @@ const generateFlankSegments = (
   for (const flankRootIndex of flankRootIndices) {
     const flankRoot = toothRoots[flankRootIndex];
     // terrible naming lol, but i needed smth to differentiate the index of the root in the toothroots array vs in the fidelicloop array
-    const rootFidelicIndex = flankRoot.index;
+    const rootFidelicIndex = flankRoot.fidelicIndex;
     let prevVertex: Vector2d = { ...pitchVertices[rootFidelicIndex] };
     flankSegments.push([]);
     let whileLoopCount = 0;
@@ -301,7 +308,9 @@ const generateToothFlanks = (
   pitchCurve: PitchCurve,
   fwdBaseCurve: BaseCurve,
   bwdBaseCurve: BaseCurve,
+  isConjugate?: true | false,
 ): { fwdFlank: ToothFlank; bwdFlank: ToothFlank }[] => {
+  isConjugate = isConjugate ? isConjugate : false;
   const fwdFlankTips = generateFlankSegments(
     toothRoots,
     approximateOuterDendums,
@@ -334,21 +343,110 @@ const generateToothFlanks = (
     1,
     -1,
   );
-  const toothFlankPairs = toothRoots.map((root, index) => {
-    index = Math.floor(index / ROOTSPERTOOTH);
+  const numToothRoots = toothRoots.length;
+  const numTeeth = numToothRoots / ROOTSPERTOOTH;
+  const toothFlankPairs = Array.from({ length: numTeeth }, (_, index) => {
+    const toothRootIndex = index * 4;
+    if (!isConjugate) {
+      return {
+        fwdFlank: {
+          tip: fwdFlankTips[index],
+          base: fwdFlankBases[index],
+          root: toothRoots[toothRootIndex + 2],
+          pointingRoot: toothRoots[toothRootIndex + 3],
+          dippingRoot: toothRoots[toothRootIndex + 1],
+        },
+        bwdFlank: {
+          tip: bwdFlankTips[index],
+          base: bwdFlankBases[index],
+          root: toothRoots[toothRootIndex],
+          pointingRoot:
+            toothRoots[(toothRootIndex - 1 + numToothRoots) % numToothRoots],
+          dippingRoot: toothRoots[toothRootIndex + 1],
+        },
+      };
+    }
     return {
-      fwdFlank: { tip: fwdFlankTips[index], base: fwdFlankBases[index], root },
-      bwdFlank: { tip: bwdFlankTips[index], base: bwdFlankBases[index], root },
+      fwdFlank: {
+        tip: fwdFlankBases[index],
+        base: fwdFlankTips[index],
+        root: toothRoots[toothRootIndex + 2],
+        pointingRoot: toothRoots[toothRootIndex + 1],
+        dippingRoot: toothRoots[toothRootIndex + 3],
+      },
+      bwdFlank: {
+        tip: bwdFlankBases[index],
+        base: bwdFlankTips[index],
+        root: toothRoots[toothRootIndex],
+        pointingRoot: toothRoots[toothRootIndex + 1],
+        dippingRoot:
+          toothRoots[(toothRootIndex - 1 + numToothRoots) % numToothRoots],
+      },
     };
   });
   return toothFlankPairs;
 };
 
-const trimFlankSegments = (
-  pitchCurve: PitchCurve,
-  segmentA: Vector2d[],
-  segmentB: Vector2d[],
-) => {};
+const trimFlankSegmentsDuringConjugateGen = (gearA: Gear, gearB: Gear) => {
+  const getNormalProjLength = (normalLine: Line, vertex: Vector2d) => {
+    const normalLineDirection = normalizeVector(
+      sub(normalLine.v1, normalLine.v0),
+    );
+    const vertexDirection = sub(vertex, normalLine.v0);
+    const projLength = Math.abs(dot(vertexDirection, normalLineDirection));
+    return projLength;
+  };
+  // find the dipping limit of the shorter tooth flank on gear B
+  gearB.fwdFlanks.forEach((fwdFlankB, i) => {
+    const dippingRoot = fwdFlankB.dippingRoot;
+    const normalLine = dippingRoot.normalLine;
+    const fwdProjLengthB = getNormalProjLength(
+      normalLine,
+      fwdFlankB.base.at(-1),
+    );
+    // highly disturbing hackey fix
+    const bwdIndex = gearB.isConjugate
+      ? (i + 1 + gearB.bwdFlanks.length) % gearB.bwdFlanks.length
+      : i;
+    const bwdFlankB = gearB.bwdFlanks[bwdIndex];
+    const bwdProjLengthB = getNormalProjLength(
+      normalLine,
+      bwdFlankB.base.at(-1),
+    );
+    const minLength = Math.min(bwdProjLengthB, fwdProjLengthB);
+    const dendumSign = Math.sign(
+      gearB.approximateInnerDendums[dippingRoot.rootArrayIndex],
+    );
+    gearB.approximateInnerDendums[dippingRoot.rootArrayIndex] =
+      dendumSign * minLength;
+  });
+  gearA.approximateOuterDendums = [...gearB.approximateInnerDendums];
+  // gear A's tips get trimmed
+  gearA.fwdFlanks.forEach((fwdFlankA, i) => {
+    const pointingRoot = fwdFlankA.pointingRoot;
+    const normalLine = pointingRoot.normalLine;
+    const maxToothHeight = Math.abs(
+      gearA.approximateOuterDendums[pointingRoot.rootArrayIndex],
+    );
+    for (let j = fwdFlankA.tip.length - 1; j >= 0; j--) {
+      const fwdTipA = fwdFlankA.tip.at(-1);
+      const fwdTipProjLengthA = getNormalProjLength(normalLine, fwdTipA);
+      if (fwdTipProjLengthA < maxToothHeight) break;
+      fwdFlankA.tip.pop();
+    }
+    // highly disturbing hackey fix
+    const bwdIndex = gearA.isConjugate
+      ? i
+      : (i + 1 + gearA.bwdFlanks.length) % gearA.bwdFlanks.length;
+    const bwdFlankA = gearA.bwdFlanks[bwdIndex];
+    for (let j = bwdFlankA.tip.length - 1; j >= 0; j--) {
+      const bwdTipA = bwdFlankA.tip.at(-1);
+      const bwdTipProjLengthA = getNormalProjLength(normalLine, bwdTipA);
+      if (bwdTipProjLengthA < maxToothHeight) break;
+      bwdFlankA.tip.pop();
+    }
+  });
+};
 
 export const createGearFromPolarParam = (
   polarParamaterization: PolarParamaterization,
@@ -444,6 +542,13 @@ export const createGearFromPolarParam = (
     setCenter: (v: Vector2d) => {
       orientation.center = { ...v };
     },
+    centerBore: crossHole.map((vec) => scale(vec, 10)),
+    /*[
+      { x: -20, y: -20 },
+      { x: 20, y: -20 },
+      { x: 20, y: 20 },
+      { x: -20, y: 20 },
+    ],*/
   };
   return gear;
 };
@@ -492,6 +597,7 @@ const generateToothFlanksDuringConjugateGen = (gear: Gear) => {
     pitchCurve,
     fwdBaseCurve,
     bwdBaseCurve,
+    gear.isConjugate,
   );
   const fwdFlanks = toothFlankPairs.map((pair) => pair.fwdFlank);
   const bwdFlanks = toothFlankPairs.map((pair) => pair.bwdFlank);
@@ -541,9 +647,10 @@ const generateApproximateUndercutLinesDuringConjugateGen = (
     const toothRootArrayNextIndex =
       (((j + 1) % numToothRoots) + numToothRoots) % numToothRoots;
     const nextRootA = toothRoots[toothRootArrayNextIndex].rootA;
-    const fidelicStartIndex = ((rootA.index % fidelity) + fidelity) % fidelity;
+    const fidelicStartIndex =
+      ((rootA.fidelicIndex % fidelity) + fidelity) % fidelity;
     const haltingFidelicIndex =
-      ((nextRootA.index % fidelity) + fidelity) % fidelity;
+      ((nextRootA.fidelicIndex % fidelity) + fidelity) % fidelity;
     let count = 0;
     const pitchCurveCircum = gearA.pitchCurve.fidelicDiscreteLoop.totalLength;
     const numTeeth = gearA.numTeeth;
@@ -619,5 +726,11 @@ export const createConjugateGear = (gearA: Gear): Gear => {
   gearA.bwdFlanks = bwdFlanksA;
   gearB.fwdFlanks = fwdFlanksB;
   gearB.bwdFlanks = bwdFlanksB;
+  // this is kind of evil but fuck it
+  const temp = gearB.approximateInnerDendums;
+  gearB.approximateInnerDendums = gearB.approximateOuterDendums;
+  gearB.approximateOuterDendums = temp;
+  trimFlankSegmentsDuringConjugateGen(gearA, gearB);
+  trimFlankSegmentsDuringConjugateGen(gearB, gearA);
   return gearB;
 };
