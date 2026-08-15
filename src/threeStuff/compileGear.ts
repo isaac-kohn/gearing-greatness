@@ -1,7 +1,12 @@
 import type { Gear } from "../generate/gear";
-import { distance, type Vector2d } from "../generate/vector";
+import { distance, scale, type Vector2d } from "../generate/vector";
 
-export const compileGearToPolygon = (gear: Gear): Vector2d[] => {
+export interface PolygonWithHoles {
+  polygon: Vector2d[];
+  holes: Vector2d[][];
+}
+
+export const compileGearToPolygon = (gear: Gear): PolygonWithHoles => {
   const polygon: Vector2d[] = [];
   const { toothRoots, fwdFlanks, bwdFlanks } = gear;
   fwdFlanks.forEach((fwdFlank, i) => {
@@ -26,16 +31,23 @@ export const compileGearToPolygon = (gear: Gear): Vector2d[] => {
       polygon.push(...bwdBase, ...bwdTip, ...fwdTip, ...fwdBase);
     }
   });
-  return polygon;
+  // again, this pipeline might be kind of stupid, since i keep separation between rendering / geometry everywhere else,
+  // and yet my gear geometry is measured in html canvas pixels, but i don't see a reason to change it at the moment
+  // so this here is just pixels -> mm conversion
+  const resize = (vertices: Vector2d[]) =>
+    vertices.map((v) => scale(v, gear.desiredAxleDistance / gear.axleDistance));
+  return { polygon, holes: gear.holes };
+  return { polygon: resize(polygon), holes: gear.holes.map(resize) }; //.map((v) => scale(v, 56 / gear.axleDistance));
 };
 
 import { Mesh, Shape, Path, ExtrudeGeometry, MeshBasicMaterial } from "three";
 
 export const polygonToExtrudedMesh = (
-  outer: Vector2d[],
-  holes: Vector2d[][],
+  polygonWithHoles: PolygonWithHoles,
   height: number,
 ): Mesh => {
+  const outer = polygonWithHoles.polygon;
+  const holes = polygonWithHoles.holes;
   const shape = new Shape();
 
   shape.moveTo(outer[0].x, outer[0].y);

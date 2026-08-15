@@ -29,6 +29,12 @@ export const createOrientation = (
   mirrored,
 });
 
+export interface CornerRect {
+  bottomLeft: Vector2d;
+  width: number;
+  height: number;
+}
+
 export const add = (a: Vector2d, b: Vector2d): Vector2d => {
   return { x: a.x + b.x, y: a.y + b.y };
 };
@@ -186,4 +192,28 @@ export const vertexLineHandedness = (line: Line, vertex: Vector2d): number => {
   const d0 = sub(v1, v0);
   const d1 = sub(vertex, v0);
   return cross(d0, d1);
+};
+
+export const mirrorVecY = (v: Vector2d, yAxis: number): Vector2d => {
+  const newY = yAxis - (v.y - yAxis);
+  return { x: v.x, y: newY };
+};
+
+export const mirrorLineY = (line: Line, yAxis: number): Line => {
+  return {
+    v0: mirrorVecY(line.v0, yAxis),
+    v1: mirrorVecY(line.v1, yAxis),
+  };
+};
+
+export const mirrorVecX = (v: Vector2d, xAxis: number): Vector2d => {
+  const newX = xAxis - (v.x - xAxis);
+  return { x: newX, y: v.y };
+};
+
+export const mirrorLineX = (line: Line, xAxis: number): Line => {
+  return {
+    v0: mirrorVecX(line.v0, xAxis),
+    v1: mirrorVecX(line.v1, xAxis),
+  };
 };

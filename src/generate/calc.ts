@@ -168,7 +168,7 @@ export const catmullRomSegment = (
   const t1 = t0 + Math.pow(distance(P0, P1), 0.5);
   const t2 = t1 + Math.pow(distance(P1, P2), 0.5);
   const t3 = t2 + Math.pow(distance(P2, P3), 0.5);
-  const splineParamaterization = (t) => {
+  const splineParamaterization = (t: number) => {
     const A1 = lerp(P0, P1, (t - t0) / (t1 - t0));
     const A2 = lerp(P1, P2, (t - t1) / (t2 - t1));
     const A3 = lerp(P2, P3, (t - t2) / (t3 - t2));

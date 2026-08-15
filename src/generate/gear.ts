@@ -1,3 +1,4 @@
+import { error } from "three";
 import { createBaseCurve, type BaseCurve } from "./baseCurve";
 import {
   arrayBinarySearch,
@@ -57,7 +58,7 @@ export interface Gear {
   numTeeth: number;
   addendum: number;
   dedendum: number;
-  centerBore: Vector2d[];
+  holes: Vector2d[][];
   // the t such that pitchCurve.fn(t) gives the point at which each tooth intersects the pitch curve
   toothRoots: ToothRoot[];
   // I wasn't sure exactly how to define the dendums, so instead i take the minimum undercut at each tooth flank
@@ -75,6 +76,11 @@ export interface Gear {
   orientation: Orientation;
   // single conjugate partner, if any
   conjugate: Gear | null;
+  axleDistance: number;
+  // this may be kind of a dumb pipeline, we use whatever random pixel dimensions for the actual gear geometry,
+  // then we resize exerything only when we want to actually export it to stl.
+  // so axledistance is in pixel dimensions, and desiredAxleDistance is millimeters
+  desiredAxleDistance: number;
   isConjugate: true | false;
   setDirection: (angle: number) => void;
   setDirectionIndividually: (angle: number) => void;
@@ -236,6 +242,7 @@ const generateFlankSegments = (
         break;
       }
       whileLoopCount++;
+
       // true undercutting break condition
       if (unwrapLength < 0) {
         break;
@@ -283,14 +290,7 @@ const generateFlankSegments = (
           turningDirection *
           dendumSign >
         0;
-      /*if (whileLoopCount > 5) {
-        vertex.x = dendumV0.x;
-        vertex.y = dendumV0.y;
-      }
-      if (whileLoopCount > 6) {
-        vertex.x = dendumV1.x;
-        vertex.y = dendumV1.y;
-      }*/
+
       if (whileLoopCount > 1 && dendumLineCrossed) break;
       // all breaks passed, vertex can be added.
       flankSegments[flankSegments.length - 1].push(vertex);
@@ -452,6 +452,7 @@ export const createGearFromPolarParam = (
   polarParamaterization: PolarParamaterization,
   pressureAngle: number,
   numTeeth: number,
+  desiredAxleDistance: number,
   fidelity: number = 1000,
   renderFidelity: number = 100,
   orientation: Orientation = createOrientation(),
@@ -542,7 +543,8 @@ export const createGearFromPolarParam = (
     setCenter: (v: Vector2d) => {
       orientation.center = { ...v };
     },
-    centerBore: crossHole.map((vec) => scale(vec, 10)),
+    holes: [crossHole.map((vec) => scale(vec, 1))],
+    desiredAxleDistance,
     /*[
       { x: -20, y: -20 },
       { x: 20, y: -20 },
@@ -706,6 +708,7 @@ export const createConjugateGear = (gearA: Gear): Gear => {
     conjPitch.polarParamaterization,
     gearA.pressureAngle,
     gearA.numTeeth,
+    gearA.desiredAxleDistance,
     conjPitch.fidelity,
     conjPitch.renderFidelity,
     createOrientation({ x: centerA.x + L, y: centerA.y }, 0, false),
@@ -730,7 +733,13 @@ export const createConjugateGear = (gearA: Gear): Gear => {
   const temp = gearB.approximateInnerDendums;
   gearB.approximateInnerDendums = gearB.approximateOuterDendums;
   gearB.approximateOuterDendums = temp;
-  trimFlankSegmentsDuringConjugateGen(gearA, gearB);
-  trimFlankSegmentsDuringConjugateGen(gearB, gearA);
+  /*trimFlankSegmentsDuringConjugateGen(gearA, gearB);
+  trimFlankSegmentsDuringConjugateGen(gearB, gearA);*/
+  gearA.axleDistance = L;
+  gearB.axleDistance = L;
+  const desiredL = gearA.desiredAxleDistance;
+  console.log(L / desiredL);
+  gearA.holes[0] = crossHole.map((v: Vector2d) => scale(v, L / desiredL));
+  gearB.holes[0] = crossHole.map((v: Vector2d) => scale(v, L / desiredL));
   return gearB;
 };

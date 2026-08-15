@@ -1,16 +1,12 @@
 import { Scene, PerspectiveCamera, WebGLRenderer } from "three";
 import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
 
-import { polygonToExtrudedMesh } from "./compileGear";
+import { polygonToExtrudedMesh, type PolygonWithHoles } from "./compileGear";
 import type { Vector2d } from "../generate/vector";
 
 export interface ThreeWindow {
   element: HTMLDivElement;
-  addPolygon: (
-    vertices: Vector2d[],
-    holes: Vector2d[][],
-    height: number,
-  ) => void;
+  addPolygon: (polygonWithHoles: PolygonWithHoles, height: number) => void;
   downloadSTL: () => void;
 }
 
@@ -26,12 +22,8 @@ export function createThreeWindow(): ThreeWindow {
   renderer.setSize(600, 400);
   element.appendChild(renderer.domElement);
 
-  function addPolygon(
-    vertices: Vector2d[],
-    holes: Vector2d[][],
-    height: number,
-  ) {
-    const mesh = polygonToExtrudedMesh(vertices, holes, height);
+  function addPolygon(polygonWithHoles: PolygonWithHoles, height: number) {
+    const mesh = polygonToExtrudedMesh(polygonWithHoles, height);
     scene.add(mesh);
   }
 

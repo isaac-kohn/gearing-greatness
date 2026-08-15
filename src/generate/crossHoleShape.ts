@@ -1,5 +1,7 @@
 import type { Vector2d } from "./vector";
 
+export const STUDWIDTH = 8;
+
 const generateArc = (
   startAngle: number,
   endAngle: number,
