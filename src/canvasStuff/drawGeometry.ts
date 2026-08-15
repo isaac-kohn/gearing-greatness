@@ -127,7 +127,7 @@ const drawToothRoots = (context: CanvasRenderingContext2D, gear: Gear) => {
     drawPoint(context, toWorld(toothRoot.vertex, orientation), {
       radius: 1,
     });
-    drawLine(
+    /*drawLine(
       context,
       {
         v0: toWorld(v0, orientation),
@@ -151,7 +151,7 @@ const drawToothRoots = (context: CanvasRenderingContext2D, gear: Gear) => {
     drawPoint(context, toWorld(limitPointIn, orientation), {
       radius: 1,
       color: "green",
-    });
+    });*/
   });
 };
 
@@ -188,11 +188,13 @@ export const drawGear = (
   /*if (index !== undefined) {
     index = Math.floor(index);
     index = ((index % fidelity) + fidelity) % fidelity;
-  }*/
-  index = index || 0;
-  //drawPolygonalLoop(context, gear.pitchCurve.renderedDiscreteLoop, orientation);
+  } else index = 0;*/
+  /*const direction =
+    gear.pitchCurve.fidelicDiscreteLoop.polarVectors[index].angle;*/
+  //gear.setDirection(direction);
+  context.strokeStyle = "blue";
+  drawPolygonalLoop(context, gear.pitchCurve.renderedDiscreteLoop, orientation);
   context.lineWidth = 0.5;
-  /*
   drawPolygonalLoop(
     context,
     gear.bwdBaseCurve.renderedDiscreteLoop,
@@ -202,12 +204,12 @@ export const drawGear = (
     context,
     gear.fwdBaseCurve.renderedDiscreteLoop,
     orientation,
-  );*/
+  );
   context.lineWidth = 1;
   context.strokeStyle = "#0ff";
   /*
   gear.pitchCurve.renderedDiscreteLoop.vertices.forEach((v0, i) => {
-    const v1 = gear.baseCurve.renderedDiscreteLoop.vertices[i];
+    const v1 = gear.fwdBaseCurve.renderedDiscreteLoop.vertices[i];
     context.beginPath();
     context.moveTo(v0.x, v0.y);
     context.lineTo(v1.x, v1.y);
@@ -231,21 +233,26 @@ export const drawGear = (
   }*/
   //drawPolygonalLoop(context, gear.polyAddendum, orientation);
   //drawPolygonalLoop(context, gear.polyDedendum, orientation);
-  //drawToothRoots(context, gear);
-  drawToothFlanks(context, gear);
-
+  drawToothRoots(context, gear);
+  context.strokeStyle = "red";
+  drawToothFlanks(context, gear, { color: "red" });
+  index = 0;
   if (!gear.isConjugate) {
     const pitchX = gear.pitchCurve.fidelicDiscreteLoop.vertices[0];
     context.save();
     context.translate(pitchX.x, 0);
+    const undercuttingLimit = distance(
+      gear.bwdBaseCurve.fidelicDiscreteLoop.vertices[index],
+      gear.pitchCurve.fidelicDiscreteLoop.vertices[index],
+    );
     const lineOfAction: Line = {
       v0: {
-        x: -30 * Math.cos(gear.pressureAngle),
-        y: -30 * Math.sin(gear.pressureAngle),
+        x: -undercuttingLimit * Math.sin(gear.pressureAngle),
+        y: -undercuttingLimit * Math.cos(gear.pressureAngle),
       },
       v1: {
-        x: 30 * Math.cos(gear.pressureAngle),
-        y: 30 * Math.sin(gear.pressureAngle),
+        x: undercuttingLimit * Math.sin(gear.pressureAngle),
+        y: undercuttingLimit * Math.cos(gear.pressureAngle),
       },
     };
     drawLine(context, lineOfAction, { color: "orange", lineWidth: 2 });
@@ -257,19 +264,20 @@ export const drawGear = (
         color: "lime",
       },
     );
+    const actionDist = index * 0.215;
     const lineOfActionDirection = sub(lineOfAction.v1, lineOfAction.v0);
-    const contactPoint = setMagnitude(lineOfActionDirection, index);
+    const contactPoint = setMagnitude(lineOfActionDirection, actionDist);
     const tangentLineDirection = setMagnitude(perp(lineOfActionDirection), 10);
     const tangent0 = add(tangentLineDirection, contactPoint);
     const tangent1 = sub(contactPoint, tangentLineDirection);
     const tangentLine = { v0: tangent0, v1: tangent1 };
-    drawLine(context, tangentLine, { color: "yellow", lineWidth: 1 });
+    //drawLine(context, tangentLine, { color: "yellow", lineWidth: 1 });
 
-    context.strokeStyle = "blue";
+    /*context.strokeStyle = "blue";
     context.beginPath();
     context.arc(0, 0, magnitude(contactPoint), 0, 2 * Math.PI);
     context.stroke();
-    context.closePath();
+    context.closePath();*/
     drawPoint(context, contactPoint, { radius: 3, color: "magenta" });
     context.restore();
   }

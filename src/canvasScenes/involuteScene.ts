@@ -37,7 +37,7 @@ export const bootInvoluteScene: CanvasSceneBooter = (
   const gearA = createGearFromPolarParam(
     {
       fn: (u) => {
-        return { mag: 150 - 0 * Math.cos(2 * u), angle: u };
+        return { mag: 150 - 50 * Math.cos(3 * u), angle: u };
       },
       domainMax: 2 * Math.PI,
       domainMin: 0,
@@ -55,11 +55,14 @@ export const bootInvoluteScene: CanvasSceneBooter = (
     timeMs: number,
   ) => {
     const timeSeconds = 0.001 * timeMs;
-    const T = 10;
+    const T = 30;
     fillCanvasBackground(context, canvas, { color: "white" });
-    const index = (timeSeconds / T) * gearA.fidelity;
-    drawGear(context, gearA, index);
-    drawGear(context, gearB, index);
+    const index =
+      timeSeconds < 1
+        ? (timeSeconds / T) * gearA.fidelity
+        : (timeSeconds / T) * gearA.fidelity;
+    drawGear(context, gearA);
+    drawGear(context, gearB);
   };
   return {
     init: () => {},

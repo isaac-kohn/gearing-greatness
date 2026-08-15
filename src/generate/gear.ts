@@ -733,8 +733,8 @@ export const createConjugateGear = (gearA: Gear): Gear => {
   const temp = gearB.approximateInnerDendums;
   gearB.approximateInnerDendums = gearB.approximateOuterDendums;
   gearB.approximateOuterDendums = temp;
-  /*trimFlankSegmentsDuringConjugateGen(gearA, gearB);
-  trimFlankSegmentsDuringConjugateGen(gearB, gearA);*/
+  trimFlankSegmentsDuringConjugateGen(gearA, gearB);
+  trimFlankSegmentsDuringConjugateGen(gearB, gearA);
   gearA.axleDistance = L;
   gearB.axleDistance = L;
   const desiredL = gearA.desiredAxleDistance;
