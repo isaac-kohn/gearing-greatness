@@ -14,18 +14,22 @@ export const compileGearToPolygon = (gear: Gear): PolygonWithHoles => {
     //console.log(distance(fwdFlank.tip[0], fwdFlank.root.vertex));
     const bwdFlank = bwdFlanks[i];
     if (!gear.isConjugate) {
-      const fwdBase = fwdFlank.base
+      const fwdBase = [...fwdFlank.base]
         .splice(0, fwdFlank.base.length - 1)
         .reverse();
-      const fwdTip = fwdFlank.tip.splice(0, fwdFlank.tip.length - 1);
-      const bwdTip = bwdFlank.tip.splice(0, bwdFlank.tip.length - 1).reverse();
-      const bwdBase = bwdFlank.base.splice(0, bwdFlank.base.length - 1);
+      const fwdTip = [...fwdFlank.tip].splice(0, fwdFlank.tip.length - 1);
+      const bwdTip = [...bwdFlank.tip]
+        .splice(0, bwdFlank.tip.length - 1)
+        .reverse();
+      const bwdBase = [...bwdFlank.base].splice(0, bwdFlank.base.length - 1);
       polygon.push(...bwdTip, ...bwdBase, ...fwdBase, ...fwdTip);
     } else {
-      const fwdBase = fwdFlank.base.splice(0, fwdFlank.base.length - 1);
-      const fwdTip = fwdFlank.tip.splice(0, fwdFlank.tip.length - 1).reverse();
-      const bwdTip = bwdFlank.tip.splice(0, bwdFlank.tip.length - 1);
-      const bwdBase = bwdFlank.base
+      const fwdBase = [...fwdFlank.base].splice(0, fwdFlank.base.length - 1);
+      const fwdTip = [...fwdFlank.tip]
+        .splice(0, fwdFlank.tip.length - 1)
+        .reverse();
+      const bwdTip = [...bwdFlank.tip].splice(0, bwdFlank.tip.length - 1);
+      const bwdBase = [...bwdFlank.base]
         .splice(0, bwdFlank.base.length - 1)
         .reverse();
       polygon.push(...bwdBase, ...bwdTip, ...fwdTip, ...fwdBase);

@@ -16,6 +16,7 @@ export interface PolygonalLoop {
   curvatureAtIndex: (index: number) => number;
   findIndexOfCumulativeLength: (length: number) => number;
   tangentAtIndex: (index: number) => Vector2d;
+  //findIndexOfAngle: (targetAngle: number) => number;
 }
 
 const cumulativeLengthsOfVertexPath = (
@@ -30,9 +31,9 @@ const cumulativeLengthsOfVertexPath = (
   const totalLength =
     cumulativeLengths[cumulativeLengths.length - 1] +
     distance(vertices[vertices.length - 1], vertices[0]);
-  const testLength1 = cumulativeLengths[cumulativeLengths.length - 1];
+  /*const testLength1 = cumulativeLengths[cumulativeLengths.length - 1];
   const testLength2 = distance(vertices[vertices.length - 1], vertices[0]);
-  console.log(totalLength, testLength1, testLength2, vertices);
+  console.log(totalLength, testLength1, testLength2, vertices);*/
   return { cumulativeLengths, totalLength };
 };
 
@@ -51,6 +52,8 @@ export const createPolygonalLoop = (
     tangentAtIndex: (index) => tangentAtIndexOfVertexArray(vertices, index),
     findIndexOfCumulativeLength: (length) =>
       findIndexOfCumulativeLength(cumulativeLengths, totalLength, length),
+    /*findIndexOfAngle: (targetAngle) =>
+      findIndexOfAngle(polarVectors, targetAngle),*/
   };
 };
 
@@ -75,3 +78,23 @@ const findIndexOfCumulativeLength = (
   });
   return baseIndex;
 };
+
+/*const findIndexOfAngle = (
+  polarVectors: PolarVector[],
+  targetAngle: number,
+): number => {
+  const fidelity = polarVectors.length;
+  const tau = 2 * Math.PI;
+  targetAngle = ((targetAngle % tau) + tau) % tau;
+  if (targetAngle > polarVectors[fidelity - 1].angle) {
+    const baseIndex = fidelity;
+    console.warn("bug related to findIndexOfAngle in polygonalLoop.ts.");
+    return baseIndex;
+  }
+  const baseIndex = arrayBinarySearch(polarVectors, (sampleVector) => {
+    if (sampleVector.angle > targetAngle) return "high";
+    if (sampleVector.angle < targetAngle) return "low";
+    return "equal";
+  });
+  return baseIndex;
+};*/

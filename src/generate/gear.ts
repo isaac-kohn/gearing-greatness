@@ -146,7 +146,7 @@ const generateToothRoots = (
   const totalLength = fidelicDiscreteLoop.totalLength;
   const toothSpacing = totalLength / numToothRoots;
   const toothRoots: ToothRoot[] = [];
-  console.log(fidelicDiscreteLoop.cumulativeLengths);
+  //console.log(fidelicDiscreteLoop.cumulativeLengths);
   for (let i = 0; i < numToothRoots; i++) {
     const targetLength = i * toothSpacing;
     const targetIndex =
@@ -545,6 +545,7 @@ export const createGearFromPolarParam = (
     },
     holes: [crossHole.map((vec) => scale(vec, 1))],
     desiredAxleDistance,
+    axleDistance: 0,
     /*[
       { x: -20, y: -20 },
       { x: 20, y: -20 },

@@ -76,7 +76,70 @@ export const createPitchCurveFromPolarParam = (
   };
 };
 
+export const findConjCenterDistByPolarArray = (
+  polarVectors: PolarVector[],
+  periodRatio: { a: number; b: number } = { a: 1, b: 1 },
+): number => {
+  const q = periodRatio.b / periodRatio.a;
+  const polarsA = polarVectors;
+  let supA = Math.max(...polarsA.map((polar) => polar.mag));
+  return numberRangeSearch(supA, supA / q + supA, (sampleLength: number) => {
+    const integrand = polarsA.map((polar): PolarVector => {
+      return {
+        angle: polar.angle,
+        mag: polar.mag / (sampleLength - polar.mag),
+      };
+    });
+    const integral = integratePolarArray(integrand);
+    if (integral < q * 2 * Math.PI) return "high"; // if the sample distance is too high, the gear wont rotate far enough to reach q
+    if (integral > q * 2 * Math.PI) return "low"; // if the sample distance is too low, the gear will rotate past q
+    return "equal";
+  });
+};
+
+export const findConjPitchCurveByPolarArray = (
+  polarArrayA: PolarVector[],
+  conjugateCenterDistance: number,
+): {
+  polarArrayB: PolarVector[];
+  alphaArray: number[];
+  betaArray: number[];
+} => {
+  const L = conjugateCenterDistance;
+  const fidelity = polarArrayA.length;
+  const polarArrayB: PolarVector[] = [];
+  let beta = 0;
+  const betaArray = [];
+  const alphaArray = [];
+  for (let i = 0; i < fidelity; i++) {
+    const index = ((i % fidelity) + fidelity) % fidelity;
+    const prevIndex = (((i - 1) % fidelity) + fidelity) % fidelity;
+    const magA = polarArrayA[index].mag;
+    const magB = L - magA;
+    const theta = polarArrayA[index].angle;
+    const prevTheta = polarArrayA[prevIndex].angle;
+    const thetaPrime = theta - prevTheta;
+    const alpha = -theta;
+    const integrand = (magA / magB) * thetaPrime;
+    beta += integrand;
+    betaArray.push(beta);
+    alphaArray.push(alpha);
+    polarArrayB.push({ mag: magB, angle: normalizeAngle(Math.PI - beta) });
+  }
+  return { polarArrayB, alphaArray, betaArray };
+};
+
 export const findConjugateCenterDistance = (
+  pitchCurveA: PitchCurve,
+  periodRatio: { a: number; b: number } = { a: 1, b: 1 },
+): number => {
+  return findConjCenterDistByPolarArray(
+    pitchCurveA.fidelicDiscreteLoop.polarVectors,
+    periodRatio,
+  );
+};
+
+/*export const findConjugateCenterDistance = (
   pitchCurveA: PitchCurve,
   periodRatio: { a: number; b: number } = { a: 1, b: 1 },
 ): number => {
@@ -101,35 +164,18 @@ export const findConjugateCenterDistance = (
     if (integral > q * 2 * Math.PI) return "low"; // if the sample distance is too low, the gear will rotate past q
     return "equal";
   });
-};
+};*/
 
 // shoutout to captain campea for saving my stupid ass with this shit
 export const createConjugatePitchCurve = (
   pitchCurveA: PitchCurve,
   conjugateCenterDistance: number,
 ): PitchCurve => {
-  const L = conjugateCenterDistance;
   const fidelity = pitchCurveA.fidelity;
-  const polarArrayA = pitchCurveA.fidelicDiscreteLoop.polarVectors;
-  const polarArrayB: PolarVector[] = [];
-  let beta = 0;
-  const betaArray = [];
-  const alphaArray = [];
-  for (let i = 0; i < fidelity; i++) {
-    const index = ((i % fidelity) + fidelity) % fidelity;
-    const prevIndex = (((i - 1) % fidelity) + fidelity) % fidelity;
-    const magA = polarArrayA[index].mag;
-    const magB = L - magA;
-    const theta = polarArrayA[index].angle;
-    const prevTheta = polarArrayA[prevIndex].angle;
-    const thetaPrime = theta - prevTheta;
-    const alpha = -theta;
-    const integrand = (magA / magB) * thetaPrime;
-    beta += integrand;
-    betaArray.push(beta);
-    alphaArray.push(alpha);
-    polarArrayB.push({ mag: magB, angle: Math.PI - beta });
-  }
+  const { polarArrayB, alphaArray, betaArray } = findConjPitchCurveByPolarArray(
+    pitchCurveA.fidelicDiscreteLoop.polarVectors,
+    conjugateCenterDistance,
+  );
   pitchCurveA.angleSyncMap = alphaArray;
   const polarParamB: PolarParamaterization =
     discretePolarArrayToPolarParameterization(polarArrayB);

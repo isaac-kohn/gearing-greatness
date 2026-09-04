@@ -142,7 +142,7 @@ export const polarToVertex = (polar: PolarVector): Vector2d => {
 };
 
 export const vertexToPolar = (vertex: Vector2d): PolarVector => {
-  return { angle: getAngle(vertex), mag: magnitude(vertex) };
+  return { angle: normalizeAngle(getAngle(vertex)), mag: magnitude(vertex) };
 };
 
 export const normalizeAngle = (
@@ -217,3 +217,9 @@ export const mirrorLineX = (line: Line, xAxis: number): Line => {
     v1: mirrorVecX(line.v1, xAxis),
   };
 };
+
+export const copyVertexArray = (vertices: Vector2d[]): Vector2d[] =>
+  vertices.map((v) => {
+    const { x, y } = v;
+    return { x, y };
+  });

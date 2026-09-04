@@ -8,10 +8,10 @@ import {
 import { bootRotatingBlanksScene } from "./canvasScenes/rotatingBlanks";
 import { bootInvoluteScene } from "./canvasScenes/involuteScene";
 
-//mainImport();
+mainImport();
 
 //runCanvasScene(bootStickFigureScene);
 
 //runCanvasScene(bootRotatingBlanksScene);
 
-runCanvasScene(bootInvoluteScene);
+//runCanvasScene(bootInvoluteScene);
