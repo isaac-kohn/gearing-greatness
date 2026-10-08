@@ -30,7 +30,7 @@ const tab4 = CreatePreviewTab("Triangle", {
 });
 const tab5 = CreatePreviewTab("Teardrop", {
   fn: (u) => {
-    return { angle: u, mag: 100 - 60 * Math.sin(1 * u) };
+    return { angle: u, mag: 100 - 65 * Math.sin(1 * u) };
   },
   domainMax: 2 * Math.PI,
   domainMin: 0,
@@ -42,7 +42,6 @@ const tab1 = CreatePreviewTab("Circle", {
   domainMax: 2 * Math.PI,
   domainMin: 0,
 });
-tab1.isSelected = true;
 const tab7 = CreatePreviewTab("Peanut", {
   fn: (u) => {
     return { angle: u, mag: 100 - 50 * Math.sin(2 * u) };
@@ -57,5 +56,7 @@ const tab8 = CreatePreviewTab("Ninja", {
   domainMax: 2 * Math.PI,
   domainMin: 0,
 });
+
+tab3.isSelected = true;
 
 export const previewTabs = [tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8];

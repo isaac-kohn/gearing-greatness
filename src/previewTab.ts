@@ -14,6 +14,7 @@ export interface PreviewContainer {
   canvas: HTMLCanvasElement;
   element: HTMLDivElement;
   tabs: PreviewTab[];
+  getSelectedIndex: () => number;
   rerender: () => void;
   resize: (width: number, height: number) => void;
   checkMouseIntersection: (mousePosition: Vector2d) => void;
@@ -37,10 +38,15 @@ export const createPreviewContainer = (
   canvas.style.border = "solid lightgrey";
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Could not get 2D context");
+  let selectedIndex = 0;
+  previewTabs.forEach((tab, index) => {
+    if (tab.isSelected) selectedIndex = index;
+  });
   return {
     element: root,
     canvas,
     context,
+    getSelectedIndex: () => selectedIndex,
     tabs: previewTabs,
     rerender: () => renderPreviewContainer(context, canvas, previewTabs),
     resize: (w: number, h: number) => {
@@ -49,12 +55,13 @@ export const createPreviewContainer = (
     checkMouseIntersection: (mousePosition) =>
       checkMouseIntersection(context, canvas, previewTabs, mousePosition),
     selectCurrent: () => {
-      previewTabs.forEach((tab) => {
+      previewTabs.forEach((tab, index) => {
         if (tab.isHovered) {
           previewTabs.forEach((t) => {
             t.isSelected = false;
           });
           tab.isSelected = true;
+          selectedIndex = index;
         }
       });
     },
@@ -191,7 +198,6 @@ const checkMouseIntersection = (
   // LMAO, i have no idea why these numbers work, but fuck it
   const i = Math.floor((4 * mousePosition.x + width) / width);
   const j = Math.floor((-8 * mousePosition.y + 2 * height) / height);
-  console.log(mousePosition.x, mousePosition.y);
   previewTabs.forEach((tab) => {
     tab.isHovered = false;
   });

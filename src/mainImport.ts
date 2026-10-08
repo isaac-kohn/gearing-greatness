@@ -81,6 +81,7 @@ export interface AppState {
   threeCanvas?: ThreeWindow;
   context?: CanvasRenderingContext2D;
   previewTabWindow?: PreviewContainer;
+  previousTabIndex?: number;
   gearA?: Gear;
   gearB?: Gear;
   selectedGearForcedAngle: number;
@@ -292,6 +293,37 @@ const bootEventListeners = () => {
     );
     APPSTATE.previewTabWindow?.selectCurrent();
     APPSTATE.previewTabWindow?.rerender();
+    const selectedTabIndex = APPSTATE.previewTabWindow?.getSelectedIndex();
+
+    console.log(selectedTabIndex);
+    if (APPSTATE.previousTabIndex !== selectedTabIndex) {
+      if (
+        selectedTabIndex === undefined ||
+        APPSTATE.gearA === undefined ||
+        APPSTATE.previewTabWindow === undefined
+      )
+        return;
+      APPSTATE.previousTabIndex = selectedTabIndex;
+      const {
+        pressureAngle,
+        numTeeth,
+        desiredAxleDistance,
+        fidelity,
+        renderFidelity,
+      } = APPSTATE.gearA;
+      APPSTATE.gearA = createGearFromPolarParam(
+        APPSTATE.previewTabWindow?.tabs[selectedTabIndex].polarParamaterization,
+        pressureAngle,
+        numTeeth,
+        desiredAxleDistance,
+        fidelity,
+        renderFidelity,
+      );
+      APPSTATE.gearB = createConjugateGear(APPSTATE.gearA);
+      APPSTATE.polygonGearA = compileGearToPolygon(APPSTATE.gearA);
+      APPSTATE.polygonGearB = compileGearToPolygon(APPSTATE.gearB);
+      APPSTATE.gearA.setDirection(0);
+    }
     // gear window
     if (APPSTATE.gearMode === "edit") {
       if (!APPSTATE.isDragging) {
@@ -384,40 +416,10 @@ const centerGears = () => {
 };
 
 const bootGears = () => {
+  const selectedGearIndex = APPSTATE.previewTabWindow?.getSelectedIndex();
+  if (selectedGearIndex === undefined) return;
   APPSTATE.gearA = createGearFromPolarParam(
-    {
-      fn: (u) => {
-        /*const term1 = ((Math.sin(3 * u) + 3) / 4) * Math.cos(u);
-      const term2 = ((Math.sin(3 * u) + 4) / 4) * Math.sin(u);
-
-      const rho = Math.sqrt(Math.pow(term1, 2) + Math.pow(term2, 2));
-      const theta = Math.atan2(term2, term1); // Using atan2 handling division-by-zero safely
-
-      return {
-        mag: rho,
-        angle: theta,
-      };*/
-        return {
-          mag: 200 + Math.sin(u) + 15 * Math.sin(u) - 10 * Math.sin(3 * u),
-          angle: u,
-        };
-
-        return {
-          mag:
-            150 -
-            5 * Math.cos(4 * u) -
-            5 * Math.sin(5 * u) +
-            5 * Math.sin(8 * u),
-          angle: u,
-        };
-        return {
-          mag: 150 - 30 * Math.cos(4 * u) - 50 * Math.sin(1 * u),
-          angle: u,
-        };
-      },
-      domainMax: 2 * Math.PI,
-      domainMin: 0,
-    },
+    APPSTATE.previewTabWindow?.tabs[selectedGearIndex].polarParamaterization!,
     (25 * Math.PI) / 180,
     40,
     STUDWIDTH * 4,
