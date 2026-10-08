@@ -58,6 +58,12 @@ import {
   createPitchCurveInput,
   type PitchCurveInput,
 } from "./mathLiveStuff/pitchCurveInput";
+import {
+  createPreviewContainer,
+  CreatePreviewTab,
+  type PreviewContainer,
+} from "./previewTab";
+import { previewTabs } from "./previewTabsDefined";
 
 interface AppUI {
   editModeButton: HTMLButtonElement;
@@ -74,6 +80,7 @@ export interface AppState {
   canvas?: HTMLCanvasElement;
   threeCanvas?: ThreeWindow;
   context?: CanvasRenderingContext2D;
+  previewTabWindow?: PreviewContainer;
   gearA?: Gear;
   gearB?: Gear;
   selectedGearForcedAngle: number;
@@ -273,9 +280,19 @@ const bootEventListeners = () => {
   });
   window.addEventListener("mousemove", (e) => {
     APPSTATE.mouseClientPosition = { x: e.clientX, y: e.clientY };
+    APPSTATE.previewTabWindow?.checkMouseIntersection(
+      APPSTATE.mouseClientPosition,
+    );
+    APPSTATE.previewTabWindow?.rerender();
   });
   window.addEventListener("mousedown", (e) => {
-    console.log("testing");
+    // pitch curve gallery window
+    APPSTATE.previewTabWindow?.checkMouseIntersection(
+      APPSTATE.mouseClientPosition,
+    );
+    APPSTATE.previewTabWindow?.selectCurrent();
+    APPSTATE.previewTabWindow?.rerender();
+    // gear window
     if (APPSTATE.gearMode === "edit") {
       if (!APPSTATE.isDragging) {
         if (APPSTATE.selectedGear !== undefined) {
@@ -293,8 +310,8 @@ const resizeHTMLCanvas = () => {
   const { canvas, context } = APPSTATE;
   if (!canvas || !context) throw Error;
   // actual canvas width/height in "css pixels"
-  const WIDTH = window.innerWidth * 0.9; // 800;
-  const HEIGHT = window.innerHeight * 0.9; // 600;
+  const WIDTH = window.innerWidth * 0.7; // 800;
+  const HEIGHT = window.innerHeight * 0.7; // 600;
   const pixelRatio = Math.min(window.devicePixelRatio, 2); // unblurring - higher pixelRatio means sharper images
   canvas.width = WIDTH * pixelRatio;
   canvas.height = HEIGHT * pixelRatio;
@@ -315,6 +332,13 @@ const bootHTMLCanvas = () => {
   APPSTATE.canvas = canvas;
   APPSTATE.context = context;
   resizeHTMLCanvas();
+  // boot preview tabs
+  const previewContainer = createPreviewContainer(previewTabs);
+  document.body.append(previewContainer.element);
+  const previewHeight = window.innerHeight * 0.8;
+  previewContainer.resize(previewHeight / 2, previewHeight);
+  previewContainer.rerender();
+  APPSTATE.previewTabWindow = previewContainer;
   /*const threeCanvas = createThreeWindow();
   document.body.append(threeCanvas.element);
   //threeCanvas.style.display = "none";
