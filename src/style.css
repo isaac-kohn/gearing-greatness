@@ -5,3 +5,12 @@ body {
   justify-content: center;
   align-items: center;
 }
+
+/*removes the virtual keyboard and menu options from the MathLive input element (pitch curve input)*/
+math-field::part(virtual-keyboard-toggle) {
+  display: none;
+}
+
+math-field::part(menu-toggle) {
+  display: none;
+}

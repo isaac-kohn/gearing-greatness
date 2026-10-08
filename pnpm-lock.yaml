@@ -8,9 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@cortex-js/compute-engine':
+        specifier: ^0.126.2
+        version: 0.126.2
       '@types/three':
         specifier: ^0.185.3
         version: 0.185.3
+      mathlive:
+        specifier: ^0.110.0
+        version: 0.110.0
       three:
         specifier: ^0.185.1
         version: 0.185.1
@@ -23,6 +29,21 @@ importers:
         version: 8.0.13
 
 packages:
+
+  '@arnog/colors@0.5.0':
+    resolution: {integrity: sha512-NB7yqrO7qvInsqJdqz6C6mDU+2oiKmbBbk3czMS0E7KkGxLRy538tEHCsB5TKqmaxxXpi6/U120TnGl8NsDePg==}
+
+  '@arnog/colors@0.7.0':
+    resolution: {integrity: sha512-FpOQbw36pIpPiUSgKx0jm2YSFNP7xJgmaOV3gBtqZG3+HRTKiIR7duQs1bTca+zc1UGoAUop/OmJjqEK9dUXCw==}
+
+  '@cortex-js/compute-engine@0.126.2':
+    resolution: {integrity: sha512-lvSSmZfIgk1bz1M/M4W/DeHVoNIh6TjOjKqd3n44iFlAtmuOd6mgQlzrjxPkH2BYVobRP5P/oyO9veUwPeo6SA==}
+    engines: {node: '>=22.3.0', npm: '>=10.5.0'}
+    hasBin: true
+
+  '@cortex-js/compute-engine@0.58.0':
+    resolution: {integrity: sha512-N0+vXjVZfKwJS7ZIGvq41mojI55m5TrdDXveAXzNjzjZ9iNiNrdEzXL2EmrcP+9GCWCwTonrEeZWAIG78f3INg==}
+    engines: {node: '>=21.7.3', npm: '>=10.5.0'}
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
@@ -158,6 +179,13 @@ packages:
   '@types/webxr@0.5.24':
     resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
 
+  complex-esm@2.1.1-esm1:
+    resolution: {integrity: sha512-IShBEWHILB9s7MnfyevqNGxV0A1cfcSnewL/4uPFiSxkcQL4Mm3FxJ0pXMtCXuWLjYz3lRRyk6OfkeDZcjD6nw==}
+    engines: {node: '>=16.14.2', npm: '>=8.5.0'}
+
+  decimal.js@10.6.0:
+    resolution: {integrity: sha512-YpgQiITW3JXGntzdUmyUR1V812Hn8T1YVXhCu+wO3OpS4eU9l4YdD3qjyiKdV6mvV29zapkMeD390UVEf2lkUg==}
+
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
@@ -253,6 +281,9 @@ packages:
     resolution: {integrity: sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ==}
     engines: {node: '>= 12.0.0'}
 
+  mathlive@0.110.0:
+    resolution: {integrity: sha512-UOpJsQ6h1eeN0xZULGTl1MwUB/lZLCDuzKeHvKEh7Zra8U/rtgDNrssj5PZdJtBTIV48AfEhtv6rv47AeMOxJA==}
+
   meshoptimizer@1.1.1:
     resolution: {integrity: sha512-oRFNWJRDA/WTrVj7NWvqa5HqE1t9MYDj2VaWirQCzCCrAd2GHrqR/sQezCxiWATPNlKTcRaPRHPJwIRoPBAp5g==}
 
@@ -340,6 +371,21 @@ packages:
         optional: true
 
 snapshots:
+
+  '@arnog/colors@0.5.0': {}
+
+  '@arnog/colors@0.7.0': {}
+
+  '@cortex-js/compute-engine@0.126.2':
+    dependencies:
+      '@arnog/colors': 0.7.0
+      complex-esm: 2.1.1-esm1
+
+  '@cortex-js/compute-engine@0.58.0':
+    dependencies:
+      '@arnog/colors': 0.5.0
+      complex-esm: 2.1.1-esm1
+      decimal.js: 10.6.0
 
   '@dimforge/rapier3d-compat@0.12.0': {}
 
@@ -439,6 +485,10 @@ snapshots:
 
   '@types/webxr@0.5.24': {}
 
+  complex-esm@2.1.1-esm1: {}
+
+  decimal.js@10.6.0: {}
+
   detect-libc@2.1.2: {}
 
   fdir@6.5.0(picomatch@4.0.4):
@@ -498,6 +548,10 @@ snapshots:
       lightningcss-linux-x64-musl: 1.32.0
       lightningcss-win32-arm64-msvc: 1.32.0
       lightningcss-win32-x64-msvc: 1.32.0
+
+  mathlive@0.110.0:
+    dependencies:
+      '@cortex-js/compute-engine': 0.58.0
 
   meshoptimizer@1.1.1: {}
 

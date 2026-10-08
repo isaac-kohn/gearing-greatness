@@ -54,10 +54,15 @@ import {
   type PolarParamaterization,
 } from "./generate/calc";
 import type { PolygonalLoop } from "./generate/polygonalLoop";
+import {
+  createPitchCurveInput,
+  type PitchCurveInput,
+} from "./mathLiveStuff/pitchCurveInput";
 
 interface AppUI {
   editModeButton: HTMLButtonElement;
   simulateModeButton: HTMLButtonElement;
+  pitchCurveInput: PitchCurveInput;
 }
 
 export interface AppState {
@@ -71,6 +76,7 @@ export interface AppState {
   context?: CanvasRenderingContext2D;
   gearA?: Gear;
   gearB?: Gear;
+  selectedGearForcedAngle: number;
   selectedGear?: Gear;
   selectedGearConjugate?: Gear;
   selectedIndex?: number;
@@ -88,10 +94,12 @@ export let APPSTATE: AppState = {
   isDragging: false,
   gearsNeedRegen: false,
   isCanvasLooping: false,
+  selectedGearForcedAngle: 0,
   mouseClientPosition: { x: 0, y: 0 },
   UI: {
     editModeButton: document.createElement("button"),
     simulateModeButton: document.createElement("button"),
+    pitchCurveInput: createPitchCurveInput(),
   },
 };
 
@@ -176,6 +184,7 @@ const listenForLoopIntersection = (mousePosition: Vector2d) => {
     APPSTATE.selectedGear = APPSTATE.gearA;
     APPSTATE.selectedGearConjugate = APPSTATE.gearB;
     APPSTATE.selectedIndex = closestIndexA;
+    APPSTATE.selectedGearForcedAngle = APPSTATE.gearA.orientation.rotation;
     const v0 =
       APPSTATE.gearA.pitchCurve.renderedDiscreteLoop.vertices[closestIndexA];
     const normalVector = perp(
@@ -195,9 +204,12 @@ const listenForLoopIntersection = (mousePosition: Vector2d) => {
       APPSTATE.gearB.getCenter(),
     );
   } else {
+    // I just disabled it because it was a pain in my ass lol
+    /*
     APPSTATE.selectedGear = APPSTATE.gearB;
     APPSTATE.selectedGearConjugate = APPSTATE.gearA;
     APPSTATE.selectedIndex = closestIndexB;
+    APPSTATE.selectedGearForcedAngle = APPSTATE.gearB.orientation.rotation;
     const v0 =
       APPSTATE.gearB.pitchCurve.renderedDiscreteLoop.vertices[closestIndexB];
     const normalVector = perp(
@@ -215,7 +227,7 @@ const listenForLoopIntersection = (mousePosition: Vector2d) => {
     APPSTATE.originalConjugateDistance = distance(
       APPSTATE.gearA.getCenter(),
       APPSTATE.gearB.getCenter(),
-    );
+    );*/
   }
 };
 
@@ -238,6 +250,7 @@ const cancelDragOperation = () => {
     }),
   );
   centerGears();
+  APPSTATE.selectedGear.setDirection(APPSTATE.selectedGearForcedAngle);
 };
 
 const bootEventListeners = () => {
@@ -332,6 +345,8 @@ const bootUI = () => {
   modeToggleHint.textContent = "Press tab to switch modes";
   modeToggleDiv.append(editModeButton, simulateModeButton, modeToggleHint);
   document.body.append(modeToggleDiv);
+  const pitchCurveInput = APPSTATE.UI.pitchCurveInput;
+  document.body.append(pitchCurveInput.element);
 };
 
 const centerGears = () => {
@@ -428,7 +443,8 @@ const drawSimulateMode = (timeMs: number) => {
   context.strokeStyle = "#000";
   context.lineWidth = 2;
 
-  APPSTATE.gearA.setDirection(timeSeconds * 0.3);
+  APPSTATE.selectedGearForcedAngle = timeSeconds * 0.3; // disturbing, but fuck it at this point
+  APPSTATE.gearA.setDirection(APPSTATE.selectedGearForcedAngle);
   context.fillStyle = "pink";
   drawClosedPolygonWithHoles(
     context,
@@ -441,6 +457,12 @@ const drawSimulateMode = (timeMs: number) => {
     APPSTATE.gearB.orientation,
   );
 };
+
+// this is going to be an extremely distrurbing strategy,
+// but i think it is best to make the conjugate gear into a non-conjugate and mirror everything
+// when the conjugate gear needs to be edited
+// probably though i just want to forget about this lol just gonna disable the possibility to select gear B
+const selectPitchCurve = () => {};
 
 const mutatePitchCurve = (
   isFidelic: boolean,
@@ -513,7 +535,14 @@ const dragPitchCurve = (mousePosition: Vector2d) => {
     x: conjSign * L,
     y: 0,
   });
-  gearB.orientation.rotation = betaArray[0];
+  // highly disturbing but fuck it. we temporarily sub in the new angle syncs to position the gears for renduring during a drag
+  const rememberA = gearA.pitchCurve.angleSyncMap;
+  const rememberB = gearB.pitchCurve.angleSyncMap;
+  gearB.pitchCurve.angleSyncMap = betaArray;
+  gearA.pitchCurve.angleSyncMap = alphaArray;
+  gearA.setDirection(APPSTATE.selectedGearForcedAngle);
+  gearA.pitchCurve.angleSyncMap = rememberA;
+  gearB.pitchCurve.angleSyncMap = rememberB;
 };
 
 const finishDraggingPitchCurve = (mousePosition: Vector2d) => {
@@ -531,6 +560,7 @@ const finishDraggingPitchCurve = (mousePosition: Vector2d) => {
   );
   APPSTATE.gearB = createConjugateGear(APPSTATE.gearA);
   centerGears();
+  APPSTATE.gearA.setDirection(APPSTATE.selectedGearForcedAngle);
   APPSTATE.polygonGearA = compileGearToPolygon(APPSTATE.gearA);
   APPSTATE.polygonGearB = compileGearToPolygon(APPSTATE.gearB);
 };
@@ -563,6 +593,15 @@ const drawEditMode = (timeMs: number) => {
       APPSTATE.isDragging,
     );
   }
+  const result = APPSTATE.UI.pitchCurveInput.getFunction();
+
+  /*if (!result.success) {
+    console.error(result.error);
+  } else {
+    const pitchRadius = result.fn(Math.PI / 4);
+
+    console.log(pitchRadius);
+  }*/
 };
 
 function draw(timeMs: number) {
