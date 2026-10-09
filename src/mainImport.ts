@@ -50,6 +50,7 @@ import {
 import {
   discretePolarArrayToPolarParameterization,
   discretizePolarParamaterization,
+  normalizePolarParam,
   tangentAtIndexOfVertexArray,
   type PolarParamaterization,
 } from "./generate/calc";
@@ -64,6 +65,7 @@ import {
   type PreviewContainer,
 } from "./previewTab";
 import { previewTabs } from "./previewTabsDefined";
+import { scanlines } from "three/examples/jsm/tsl/display/CRT.js";
 
 interface AppUI {
   editModeButton: HTMLButtonElement;
@@ -312,7 +314,11 @@ const bootEventListeners = () => {
         renderFidelity,
       } = APPSTATE.gearA;
       APPSTATE.gearA = createGearFromPolarParam(
-        APPSTATE.previewTabWindow?.tabs[selectedTabIndex].polarParamaterization,
+        normalizePolarParam(
+          300,
+          APPSTATE.previewTabWindow?.tabs[selectedTabIndex]
+            .polarParamaterization,
+        ),
         pressureAngle,
         numTeeth,
         desiredAxleDistance,
@@ -323,6 +329,7 @@ const bootEventListeners = () => {
       APPSTATE.polygonGearA = compileGearToPolygon(APPSTATE.gearA);
       APPSTATE.polygonGearB = compileGearToPolygon(APPSTATE.gearB);
       APPSTATE.gearA.setDirection(0);
+      centerGears();
     }
     // gear window
     if (APPSTATE.gearMode === "edit") {
@@ -413,13 +420,27 @@ const centerGears = () => {
   APPSTATE.gearA.setCenter({ x: centerA.x - midX, y: centerA.y });
   APPSTATE.gearB.setCenter({ x: centerB.x - midX, y: centerB.y });
   APPSTATE.gearA.setDirection(0);
+  //fitGearsToWindow();
 };
+
+/*const fitGearsToWindow = () => {
+  const { context, canvas, gearA } = APPSTATE;
+  if (!context || !canvas || !gearA) return;
+  const avgRadius = gearA.pitchCurve.averageRadius;
+  const scaleFactor = 800 / canvas.width; //200 / avgRadius;
+  context.restore();
+  context.save();
+  context.scale(scaleFactor, scaleFactor);
+};*/
 
 const bootGears = () => {
   const selectedGearIndex = APPSTATE.previewTabWindow?.getSelectedIndex();
   if (selectedGearIndex === undefined) return;
   APPSTATE.gearA = createGearFromPolarParam(
-    APPSTATE.previewTabWindow?.tabs[selectedGearIndex].polarParamaterization!,
+    normalizePolarParam(
+      300,
+      APPSTATE.previewTabWindow?.tabs[selectedGearIndex].polarParamaterization!,
+    ),
     (25 * Math.PI) / 180,
     40,
     STUDWIDTH * 4,
@@ -577,7 +598,7 @@ const finishDraggingPitchCurve = (mousePosition: Vector2d) => {
   const newPolarParamA: PolarParamaterization =
     discretePolarArrayToPolarParameterization(newPolarsA);
   APPSTATE.gearA = createGearFromPolarParam(
-    newPolarParamA,
+    normalizePolarParam(300, newPolarParamA),
     (25 * Math.PI) / 180,
     30,
     STUDWIDTH * 4,
@@ -595,6 +616,20 @@ const drawEditMode = (timeMs: number) => {
   const { canvas, context } = APPSTATE;
   if (!context || !canvas || !APPSTATE.gearA || !APPSTATE.gearB) throw Error;
   const [WIDTH, HEIGHT] = [canvas.width, canvas.height];
+  context.restore();
+  context.save();
+  const trueHeight = Math.abs(
+    clientPositionToCanvasPosition({
+      x: 0,
+      y: canvas.getBoundingClientRect().top,
+    }).y -
+      clientPositionToCanvasPosition({
+        x: 0,
+        y: canvas.getBoundingClientRect().bottom,
+      }).y,
+  );
+  const scaleFactor = 400 / trueHeight;
+  context.scale(scaleFactor, scaleFactor);
   // clear canvas by drawing a big rect over everything
   context.fillStyle = "#eee";
   context.fillRect(-canvas?.width / 2, -HEIGHT / 2, WIDTH, HEIGHT);

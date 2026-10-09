@@ -116,6 +116,32 @@ export const discretePolarArrayToPolarParameterization = (
   return { fn: paramLerp, domainMin: 0, domainMax: fidelity };
 };
 
+export const normalizePolarParam = (
+  desiredMaxRadius: number,
+  polarParamaterization: PolarParamaterization,
+): PolarParamaterization => {
+  const { fn, domainMin, domainMax } = polarParamaterization;
+  const fidelity = 50;
+  let maxRadius = 0;
+  for (
+    let t = domainMin;
+    t < domainMax;
+    t += (domainMax - domainMin) / fidelity
+  ) {
+    if (fn(t).mag > maxRadius) maxRadius = fn(t).mag;
+  }
+  return {
+    domainMin,
+    domainMax,
+    fn: (u) => {
+      return {
+        angle: fn(u).angle,
+        mag: (fn(u).mag * desiredMaxRadius) / maxRadius,
+      };
+    },
+  };
+};
+
 export const tangentAtIndexOfVertexArray = (
   vertices: Vector2d[],
   index: number,
