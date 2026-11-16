@@ -409,7 +409,7 @@ const resizeGearCanvas = (w: number, h: number) => {
         y: canvas.getBoundingClientRect().bottom,
       }).y,
   );
-  const scaleFactor = 400 / trueHeight;
+  const scaleFactor = trueHeight / (600 * pixelRatio);
   context.scale(scaleFactor, scaleFactor);
   context.save();
 };
