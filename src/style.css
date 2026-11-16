@@ -2,10 +2,14 @@ html,
 body {
   height: 100%;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  margin: 0%;
+  /*justify-content: center;
+  align-items: center;*/
 }
-
+/*
+#pitch-curve-gallery-div {
+}
+*/
 /*removes the virtual keyboard and menu options from the MathLive input element (pitch curve input)*/
 math-field::part(virtual-keyboard-toggle) {
   display: none;

@@ -73,6 +73,17 @@ interface AppUI {
   pitchCurveInput: PitchCurveInput;
 }
 
+interface GearGenParams {
+  polarParamaterization: PolarParamaterization;
+  numTeeth: number;
+  pressureAngle: number;
+  desiredAxleDistance: number;
+  renderFidelity: number;
+  fidelity: number;
+  // orientation: Orientation;
+  normalizeSize: number;
+}
+
 export interface AppState {
   gearMode: "edit" | "simulate";
   isDragging: boolean;
@@ -84,6 +95,7 @@ export interface AppState {
   context?: CanvasRenderingContext2D;
   previewTabWindow?: PreviewContainer;
   previousTabIndex?: number;
+  gearGenParams: GearGenParams;
   gearA?: Gear;
   gearB?: Gear;
   selectedGearForcedAngle: number;
@@ -100,7 +112,7 @@ export interface AppState {
 }
 
 export let APPSTATE: AppState = {
-  gearMode: "edit",
+  gearMode: "simulate",
   isDragging: false,
   gearsNeedRegen: false,
   isCanvasLooping: false,
@@ -110,6 +122,21 @@ export let APPSTATE: AppState = {
     editModeButton: document.createElement("button"),
     simulateModeButton: document.createElement("button"),
     pitchCurveInput: createPitchCurveInput(),
+  },
+  gearGenParams: {
+    desiredAxleDistance: 4 * STUDWIDTH,
+    numTeeth: 30,
+    normalizeSize: 300,
+    pressureAngle: (25 * Math.PI) / 180,
+    polarParamaterization: {
+      fn: (u) => {
+        return { mag: 100, angle: u };
+      },
+      domainMin: 0,
+      domainMax: 2 * Math.PI,
+    },
+    fidelity: 4000,
+    renderFidelity: 400,
   },
 };
 
@@ -121,7 +148,6 @@ const pitchEditFalloff = (t: number, radius: number, strength: number) => {
 
 const toggleGearMode = (switchFromMode?: "edit" | "simulate") => {
   if (switchFromMode !== undefined) {
-    console.log("booby");
     APPSTATE.gearMode = switchFromMode; // this is kind of evil, but idc lol i'm not using react rn
   }
   const updateButtonUI = (
@@ -214,7 +240,7 @@ const listenForLoopIntersection = (mousePosition: Vector2d) => {
       APPSTATE.gearB.getCenter(),
     );
   } else {
-    // I just disabled it because it was a pain in my ass lol
+    // I just disabled editing the conjugate pitch curve because it was a pain in my ass lol
     /*
     APPSTATE.selectedGear = APPSTATE.gearB;
     APPSTATE.selectedGearConjugate = APPSTATE.gearA;
@@ -264,6 +290,16 @@ const cancelDragOperation = () => {
 };
 
 const bootEventListeners = () => {
+  window.addEventListener("resize", () => {
+    // throttling resize like this results in ugly screen flashes when resizing
+    /*if (resizeQueued) return;
+    resizeQueued = true;
+    requestAnimationFrame(() => {
+      resizeAllUIForNewAspectRatio();
+      resizeQueued = false;
+    });*/
+    resizeAllUIForNewAspectRatio();
+  });
   // tab to toggle gear mode
   window.addEventListener("keydown", (e) => {
     const activeTag = document?.activeElement?.tagName.toLowerCase() || "none";
@@ -281,12 +317,18 @@ const bootEventListeners = () => {
       toggleGearMode();
     }
   });
+  let hoverQueued = false;
   window.addEventListener("mousemove", (e) => {
-    APPSTATE.mouseClientPosition = { x: e.clientX, y: e.clientY };
-    APPSTATE.previewTabWindow?.checkMouseIntersection(
-      APPSTATE.mouseClientPosition,
-    );
-    APPSTATE.previewTabWindow?.rerender();
+    if (hoverQueued) return;
+    hoverQueued = true;
+    requestAnimationFrame(() => {
+      APPSTATE.mouseClientPosition = { x: e.clientX, y: e.clientY };
+      APPSTATE.previewTabWindow?.checkMouseIntersection(
+        APPSTATE.mouseClientPosition,
+      );
+      APPSTATE.previewTabWindow?.rerender();
+      hoverQueued = false;
+    });
   });
   window.addEventListener("mousedown", (e) => {
     // pitch curve gallery window
@@ -306,30 +348,9 @@ const bootEventListeners = () => {
       )
         return;
       APPSTATE.previousTabIndex = selectedTabIndex;
-      const {
-        pressureAngle,
-        numTeeth,
-        desiredAxleDistance,
-        fidelity,
-        renderFidelity,
-      } = APPSTATE.gearA;
-      APPSTATE.gearA = createGearFromPolarParam(
-        normalizePolarParam(
-          300,
-          APPSTATE.previewTabWindow?.tabs[selectedTabIndex]
-            .polarParamaterization,
-        ),
-        pressureAngle,
-        numTeeth,
-        desiredAxleDistance,
-        fidelity,
-        renderFidelity,
-      );
-      APPSTATE.gearB = createConjugateGear(APPSTATE.gearA);
-      APPSTATE.polygonGearA = compileGearToPolygon(APPSTATE.gearA);
-      APPSTATE.polygonGearB = compileGearToPolygon(APPSTATE.gearB);
-      APPSTATE.gearA.setDirection(0);
-      centerGears();
+      APPSTATE.gearGenParams.polarParamaterization =
+        APPSTATE.previewTabWindow?.tabs[selectedTabIndex].polarParamaterization;
+      regenerateGears();
     }
     // gear window
     if (APPSTATE.gearMode === "edit") {
@@ -345,39 +366,75 @@ const bootEventListeners = () => {
   });
 };
 
-const resizeHTMLCanvas = () => {
-  const { canvas, context } = APPSTATE;
-  if (!canvas || !context) throw Error;
-  // actual canvas width/height in "css pixels"
-  const WIDTH = window.innerWidth * 0.7; // 800;
-  const HEIGHT = window.innerHeight * 0.7; // 600;
-  const pixelRatio = Math.min(window.devicePixelRatio, 2); // unblurring - higher pixelRatio means sharper images
-  canvas.width = WIDTH * pixelRatio;
-  canvas.height = HEIGHT * pixelRatio;
-  canvas.style.width = `${WIDTH}px`;
-  canvas.style.height = `${HEIGHT}px`;
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.scale(pixelRatio, pixelRatio);
-  context.translate(WIDTH / 2, HEIGHT / 2);
-  context.scale(1, -1);
+const resizeAllUIForNewAspectRatio = () => {
+  const { previewTabWindow } = APPSTATE;
+  if (!previewTabWindow) {
+    console.error("pitch curve gallery PreviewContainer not defined");
+    return;
+  }
+  const windowWidth = window.innerWidth;
+  const windowHeight = window.innerHeight;
+  const curveGalleryHeight = windowHeight;
+  const curveGalleryWidth = 0.5 * windowHeight;
+  previewTabWindow.resize(curveGalleryWidth, curveGalleryHeight);
+  const gearCanvasWidth = windowWidth - curveGalleryWidth;
+  const gearCanvasHeight = windowHeight;
+  resizeGearCanvas(gearCanvasWidth, gearCanvasHeight);
 };
 
-const bootHTMLCanvas = () => {
+const resizeGearCanvas = (w: number, h: number) => {
+  const { canvas, context } = APPSTATE;
+  if (!canvas || !context) throw Error;
+  context.restore();
+  // actual canvas width/height in "css pixels"
+  //const WIDTH = window.innerWidth * 0.7; // 800;
+  //const HEIGHT = window.innerHeight * 0.7; // 600;
+  const pixelRatio = Math.min(window.devicePixelRatio, 2); // unblurring - higher pixelRatio means sharper images
+  canvas.width = w * pixelRatio;
+  canvas.height = h * pixelRatio;
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.scale(pixelRatio, pixelRatio);
+  context.translate(w / 2, h / 2);
+  context.scale(1, -1);
+  // the below is likely not the best solution for responsive design lol, needs to be reworked with more rigor
+  const trueHeight = Math.abs(
+    clientPositionToCanvasPosition({
+      x: 0,
+      y: canvas.getBoundingClientRect().top,
+    }).y -
+      clientPositionToCanvasPosition({
+        x: 0,
+        y: canvas.getBoundingClientRect().bottom,
+      }).y,
+  );
+  const scaleFactor = 400 / trueHeight;
+  context.scale(scaleFactor, scaleFactor);
+  context.save();
+};
+
+const bootHTMLCanvases = () => {
   const canvas = document.createElement("canvas");
+  canvas.id = "main-canvas";
   canvas.style.border = "solid lightgrey";
+  canvas.style.boxSizing = "border-box";
   document.body.append(canvas);
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Could not get 2D context");
   APPSTATE.canvas = canvas;
   APPSTATE.context = context;
-  resizeHTMLCanvas();
   // boot preview tabs
   const previewContainer = createPreviewContainer(previewTabs);
+  previewContainer.element.id = "pitch-curve-gallery-div";
   document.body.append(previewContainer.element);
-  const previewHeight = window.innerHeight * 0.8;
-  previewContainer.resize(previewHeight / 2, previewHeight);
-  previewContainer.rerender();
+  //const previewHeight = window.innerHeight * 0.3;
+  //previewContainer.resize(previewHeight / 2, previewHeight);
+
   APPSTATE.previewTabWindow = previewContainer;
+  resizeAllUIForNewAspectRatio();
+  previewContainer.rerender();
+
   /*const threeCanvas = createThreeWindow();
   document.body.append(threeCanvas.element);
   //threeCanvas.style.display = "none";
@@ -397,19 +454,21 @@ const bootUI = () => {
   const { editModeButton, simulateModeButton } = APPSTATE.UI;
   editModeButton.textContent = "edit";
   simulateModeButton.textContent = "simulate";
-  toggleGearMode("simulate");
+  APPSTATE.isDragging = true;
   editModeButton.onclick = () => toggleGearMode("simulate");
   simulateModeButton.onclick = () => toggleGearMode("edit");
   const modeToggleDiv = document.createElement("div");
   modeToggleDiv.style.position = "absolute";
-  modeToggleDiv.style.top = "50px";
-  modeToggleDiv.style.left = "50px";
+  modeToggleDiv.style.top = "30px";
+  modeToggleDiv.style.left = "30px";
   const modeToggleHint = document.createElement("p");
-  modeToggleHint.textContent = "Press tab to switch modes";
+  modeToggleHint.textContent = "Press tab to toggle modes";
   modeToggleDiv.append(editModeButton, simulateModeButton, modeToggleHint);
   document.body.append(modeToggleDiv);
-  const pitchCurveInput = APPSTATE.UI.pitchCurveInput;
-  document.body.append(pitchCurveInput.element);
+
+  // pitch curve box below:
+  //const pitchCurveInput = APPSTATE.UI.pitchCurveInput;
+  //document.body.append(pitchCurveInput.element);
 };
 
 const centerGears = () => {
@@ -434,39 +493,36 @@ const centerGears = () => {
 };*/
 
 const bootGears = () => {
-  const selectedGearIndex = APPSTATE.previewTabWindow?.getSelectedIndex();
-  if (selectedGearIndex === undefined) return;
-  APPSTATE.gearA = createGearFromPolarParam(
-    normalizePolarParam(
-      300,
-      APPSTATE.previewTabWindow?.tabs[selectedGearIndex].polarParamaterization!,
-    ),
-    (25 * Math.PI) / 180,
-    40,
-    STUDWIDTH * 4,
-    4000,
-    400,
-  );
-  APPSTATE.gearB = createConjugateGear(APPSTATE.gearA);
-  centerGears();
-  APPSTATE.polygonGearA = compileGearToPolygon(APPSTATE.gearA);
+  const selectedPresetGearIndex = APPSTATE.previewTabWindow?.getSelectedIndex();
+  if (selectedPresetGearIndex === undefined) return;
+  const polarParam =
+    APPSTATE.previewTabWindow?.tabs[selectedPresetGearIndex]
+      .polarParamaterization;
+  if (!polarParam) return;
+  APPSTATE.gearGenParams.polarParamaterization = polarParam;
+  regenerateGears();
   /*APPSTATE.threeCanvas!.addPolygon(
     APPSTATE.polygonGearA,
     //[APPSTATE.gearA.centerBore],
     10,
   );*/
-  APPSTATE.polygonGearB = compileGearToPolygon(APPSTATE.gearB);
   //APPSTATE.threeCanvas!.addPolygon(APPSTATE.polygonGearB, 10);
+  toggleGearMode("edit");
+  //cancelDragOperation();
 };
 
 export const mainImport = () => {
   bootEventListeners();
-  bootHTMLCanvas();
+  bootHTMLCanvases();
   bootUI();
   bootGears();
+  /*APPSTATE.threeCanvas!.addPolygon(
+    APPSTATE.polygonGearA,
+    //[APPSTATE.gearA.centerBore],
+    10,
+  );*/
   const { canvas, context } = APPSTATE;
   if (!canvas || !context || !APPSTATE.gearA || !APPSTATE.gearB) throw Error;
-
   draw(0);
 };
 
@@ -592,31 +648,49 @@ const dragPitchCurve = (mousePosition: Vector2d) => {
   gearB.pitchCurve.angleSyncMap = rememberB;
 };
 
+const regenerateGears = () => {
+  const {
+    normalizeSize,
+    numTeeth,
+    polarParamaterization,
+    fidelity,
+    renderFidelity,
+    desiredAxleDistance,
+    pressureAngle,
+  } = APPSTATE.gearGenParams;
+  try {
+    APPSTATE.gearA = createGearFromPolarParam(
+      normalizePolarParam(normalizeSize, polarParamaterization),
+      pressureAngle,
+      numTeeth,
+      desiredAxleDistance,
+      fidelity,
+      renderFidelity,
+    );
+    APPSTATE.gearB = createConjugateGear(APPSTATE.gearA);
+    centerGears();
+    APPSTATE.gearA.setDirection(APPSTATE.selectedGearForcedAngle);
+    APPSTATE.polygonGearA = compileGearToPolygon(APPSTATE.gearA);
+    APPSTATE.polygonGearB = compileGearToPolygon(APPSTATE.gearB);
+  } catch {
+    console.log("Uh oh, your gears are fucked now");
+  }
+};
+
 const finishDraggingPitchCurve = (mousePosition: Vector2d) => {
   const newPolarsA = mutatePitchCurve(true)?.newSelectedPolars;
   if (!newPolarsA) return;
   const newPolarParamA: PolarParamaterization =
     discretePolarArrayToPolarParameterization(newPolarsA);
-  APPSTATE.gearA = createGearFromPolarParam(
-    normalizePolarParam(300, newPolarParamA),
-    (25 * Math.PI) / 180,
-    30,
-    STUDWIDTH * 4,
-    4000,
-    400,
-  );
-  APPSTATE.gearB = createConjugateGear(APPSTATE.gearA);
-  centerGears();
-  APPSTATE.gearA.setDirection(APPSTATE.selectedGearForcedAngle);
-  APPSTATE.polygonGearA = compileGearToPolygon(APPSTATE.gearA);
-  APPSTATE.polygonGearB = compileGearToPolygon(APPSTATE.gearB);
+  APPSTATE.gearGenParams.polarParamaterization = newPolarParamA;
+  regenerateGears();
 };
 
 const drawEditMode = (timeMs: number) => {
   const { canvas, context } = APPSTATE;
   if (!context || !canvas || !APPSTATE.gearA || !APPSTATE.gearB) throw Error;
   const [WIDTH, HEIGHT] = [canvas.width, canvas.height];
-  context.restore();
+  /*context.restore();
   context.save();
   const trueHeight = Math.abs(
     clientPositionToCanvasPosition({
@@ -629,7 +703,7 @@ const drawEditMode = (timeMs: number) => {
       }).y,
   );
   const scaleFactor = 400 / trueHeight;
-  context.scale(scaleFactor, scaleFactor);
+  context.scale(scaleFactor, scaleFactor);*/
   // clear canvas by drawing a big rect over everything
   context.fillStyle = "#eee";
   context.fillRect(-canvas?.width / 2, -HEIGHT / 2, WIDTH, HEIGHT);

@@ -14,6 +14,9 @@ export interface PreviewContainer {
   canvas: HTMLCanvasElement;
   element: HTMLDivElement;
   tabs: PreviewTab[];
+  setHoveredIndex: (index: number) => void;
+  getHoveredIndex: () => void;
+  setSelectedIndex: (index: number) => void;
   getSelectedIndex: () => number;
   rerender: () => void;
   resize: (width: number, height: number) => void;
@@ -26,34 +29,63 @@ export const createPreviewContainer = (
 ): PreviewContainer => {
   const root = document.createElement("div");
   const canvas = document.createElement("canvas");
-  const title = document.createElement("p");
-  title.textContent = "Pitch Curve Gallery";
-  title.style.fontSize = "30px";
-  title.style.textAlign = "center";
+  const title = document.createElement("h2");
+  title.style.height = "60px";
+  title.style.background = "none";
+  title.style.margin = "0";
+  title.style.boxSizing = "border-box";
+  title.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 320 50">
+  <text x="50%" y="50%" dominant-baseline="central" text-anchor="middle" font-size="35">Pitch Curve Gallery</text>
+</svg>`; // this just works apparently I asked AI to do it
   root.appendChild(title);
   root.appendChild(canvas);
   root.style.background = "lightgrey";
   root.style.border = "black";
   root.style.borderStyle = "solid";
-  canvas.style.border = "solid lightgrey";
+  root.style.display = "grid";
+  root.style.justifyItems = "center";
+  root.style.boxSizing = "border-box"; // makes it so the border lies within root.style.height
+  canvas.style.border = "green"; //"solid lightgrey";
+  canvas.style.boxSizing = "border-box";
+  //canvas.style.margin = "10px";
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Could not get 2D context");
   let selectedIndex = 0;
+  let hoveredIndex = -1;
   previewTabs.forEach((tab, index) => {
     if (tab.isSelected) selectedIndex = index;
   });
+  let lazyRender = false;
+  const getSelectedIndex = () => selectedIndex;
+  const setSelectedIndex = (index: number) => {
+    selectedIndex = index;
+  };
+  const getHoveredIndex = () => hoveredIndex;
+  const setHoveredIndex = (index: number) => {
+    hoveredIndex = index;
+  };
   return {
     element: root,
     canvas,
     context,
-    getSelectedIndex: () => selectedIndex,
+    getSelectedIndex,
+    setSelectedIndex,
+    getHoveredIndex,
+    setHoveredIndex,
     tabs: previewTabs,
     rerender: () => renderPreviewContainer(context, canvas, previewTabs),
     resize: (w: number, h: number) => {
-      resizePreviewContainer(w, h, context, canvas);
+      resizeRootContainer(w, h, root, context, canvas, previewTabs);
     },
     checkMouseIntersection: (mousePosition) =>
-      checkMouseIntersection(context, canvas, previewTabs, mousePosition),
+      checkMouseIntersection(
+        context,
+        canvas,
+        previewTabs,
+        mousePosition,
+        getHoveredIndex,
+        setHoveredIndex,
+      ),
     selectCurrent: () => {
       previewTabs.forEach((tab, index) => {
         if (tab.isHovered) {
@@ -86,11 +118,12 @@ const renderPreviewContainer = (
   });
 };
 
-const resizePreviewContainer = (
+const resizeCanvas = (
   w: number,
   h: number,
   context: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
+  previewTabs: PreviewTab[],
 ) => {
   canvas.width = w;
   canvas.height = h;
@@ -103,6 +136,32 @@ const resizePreviewContainer = (
   context.scale(pixelRatio, pixelRatio);
   context.translate(w / 2, h / 2);
   context.scale(1, -1);
+  renderPreviewContainer(context, canvas, previewTabs);
+  //rerender
+};
+
+const resizeRootContainer = (
+  w: number,
+  h: number,
+  element: HTMLDivElement,
+  context: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  previewTabs: PreviewTab[],
+) => {
+  element.style.width = `${w}px`;
+  element.style.height = `${h}px`;
+  const title = element.firstElementChild;
+  if (!(title instanceof HTMLElement)) {
+    console.error("title not found");
+    return;
+  }
+  const titleH = title.offsetHeight;
+  const styles = getComputedStyle(element);
+  const borderTop = parseFloat(styles.borderTopWidth) || 0;
+  console.log(borderTop);
+  const newCanvasH = h - titleH - 2 * borderTop;
+  const newCanvasW = 0.5 * newCanvasH;
+  resizeCanvas(newCanvasW, newCanvasH, context, canvas, previewTabs);
 };
 
 export interface PreviewTab {
@@ -188,6 +247,8 @@ const checkMouseIntersection = (
   canvas: HTMLCanvasElement,
   previewTabs: PreviewTab[],
   mousePosition: Vector2d,
+  getHoveredIndex: () => number,
+  setHoveredIndex: (index: number) => void,
 ) => {
   mousePosition = clientPositionToCanvasPosition(
     context,
@@ -202,7 +263,12 @@ const checkMouseIntersection = (
     tab.isHovered = false;
   });
   if (i >= 0 && i <= 1 && j >= 0 && j <= 3) {
-    const index = 2 * j + i;
-    previewTabs[index].isHovered = true;
+    const currentHoveredIndex = 2 * j + i;
+    const prevHoveredIndex = getHoveredIndex();
+    if (prevHoveredIndex >= 0) previewTabs[prevHoveredIndex].isHovered = false;
+    previewTabs[currentHoveredIndex].isHovered = true;
+    setHoveredIndex(currentHoveredIndex);
+  } else {
+    setHoveredIndex(-1);
   }
 };
